@@ -1,5 +1,4 @@
-**WARNING!
-#USE AT YOUR OWN RISK!**
+**WARNING! USE AT YOUR OWN RISK!**
 ####
 # WatchROM — One Kit to Rule Them All
 ### Android ROM Engineering Suite
