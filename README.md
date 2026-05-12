@@ -1,4 +1,4 @@
-**#WARNING!
+**WARNING!
 #USE AT YOUR OWN RISK!**
 ####
 # WatchROM — One Kit to Rule Them All
