@@ -1,0 +1,17 @@
+WatchROM Signing Key Index
+Generated: RSA-2048
+
+AOSP Keys (signapk usage):
+  platform         platform.pk8  +  platform.x509.pem
+  media            media.pk8  +  media.x509.pem
+  shared           shared.pk8  +  shared.x509.pem
+  releasekey       releasekey.pk8  +  releasekey.x509.pem
+  networkstack     networkstack.pk8  +  networkstack.x509.pem
+
+AVB:       avb.pem  (avbtool --key avb.pem)
+APK:       debug.keystore  (pass: watchrom)
+
+Signing examples:
+  APK:     apksigner sign --ks debug.keystore --ks-pass pass:watchrom app.apk
+  System:  java -jar signapk.jar platform.x509.pem platform.pk8 in.apk out.apk
+  vbmeta:  avbtool make_vbmeta_image --key avb.pem --algorithm SHA256_RSA2048 ...

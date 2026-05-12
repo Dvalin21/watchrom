@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "watchrom"
+version = "1.0.0"
+description = "Android ROM engineering platform — MTK, Unisoc, Rockchip, Allwinner, Realtek, Qualcomm"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+keywords = ["android","rom","firmware","mtk","unisoc","rockchip","qualcomm","watchrom","wearos"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Embedded Systems",
+    "Topic :: System :: Hardware",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "rich>=13.0.0",
+    "click>=8.0.0",
+    "prompt_toolkit>=3.0.0",
+    "pyserial>=3.5",
+    "requests>=2.28.0",
+    "pycryptodome>=3.15.0",
+    "protobuf>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-cov", "black>=23.0", "isort>=5.0"]
+
+[project.scripts]
+watchrom = "main:cli"
+
+[project.urls]
+Homepage   = "https://github.com/yourusername/watchrom"
+Repository = "https://github.com/yourusername/watchrom"
+Issues     = "https://github.com/yourusername/watchrom/issues"
+Changelog  = "https://github.com/yourusername/watchrom/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+include = ["core*", "modules*"]
+
+[tool.black]
+line-length    = 100
+target-version = ["py38", "py39", "py310", "py311"]
+
+[tool.pytest.ini_options]
+testpaths    = ["tests"]
+python_files = ["test_*.py"]
+addopts      = "-v --tb=short"

@@ -1,0 +1,60 @@
+# WatchROM .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# WatchROM runtime (never commit)
+output/
+workspace/
+watchrom_repos/
+keys/*.pem
+keys/*.pk8
+keys/*.keystore
+keys/*.p12
+!keys/.gitkeep
+
+# Session / state
+.session.json
+.setup_status.json
+*.state.json
+
+# Firmware (too large / may be proprietary)
+*.img
+*.bin
+*.pak
+*.pac
+*.mbn
+*.elf
+*.scatter
+
+# APK/JAR
+*.apk
+*.jar
+!tools/*.jar
+
+# Logs
+*.log
+logcat_*.txt
+bugreport_*.zip
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
