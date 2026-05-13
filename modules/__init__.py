@@ -90,72 +90,20 @@ def get_device_props(serial=None):
             props[key] = val
     return props
 
-# ── Universal chipset signatures (MTK + Unisoc + Rockchip + Allwinner + Realtek) ─
-CHIPSET_SIGNATURES = {
-    # Unisoc / Spreadtrum
-    "SC9832E":["sc9832e","9832e","sp9832e"], "SC9863A":["sc9863a","9863a"],
-    "SC9863":["sc9863"], "SL8541E":["sl8541e","8541e"], "SC8541E":["sc8541e"],
-    "SC7731E":["sc7731e"], "UIS8581A":["uis8581a"], "UIS8520E":["uis8520e"],
-    # MTK
-    "MT6739":["mt6739","6739"], "MT6761":["mt6761","6761"], "MT6762":["mt6762"],
-    "MT6765":["mt6765","6765"], "MT6768":["mt6768"], "MT6771":["mt6771"],
-    "MT6785":["mt6785","helio g90"], "MT6789":["mt6789","helio g99"],
-    "MT6833":["mt6833","dimensity 700"], "MT6853":["mt6853","dimensity 720"],
-    "MT6877":["mt6877","dimensity 900"], "MT6893":["mt6893","dimensity 1200"],
-    "MT6895":["mt6895","dimensity 8200"], "MT6983":["mt6983","dimensity 9000"],
-    "MT2601":["mt2601"], "MT6580W":["mt6580"],
-    # Rockchip
-    "PX30":["px30"], "RK3126":["rk3126"], "RK3128":["rk3128"],
-    "RK3288":["rk3288"], "RK3308":["rk3308"], "RK3318":["rk3318"],
-    "RK3326":["rk3326"], "RK3328":["rk3328"], "RK3399":["rk3399"],
-    "RK3566":["rk3566"], "RK3568":["rk3568"], "RK3576":["rk3576"],
-    "RK3588":["rk3588"], "RK3588S":["rk3588s"], "PX5":["px5"], "PX6":["px6"],
-    # Allwinner
-    "A10":["a10","sun4i"], "A20":["a20","sun7i"], "A33":["a33"],
-    "A64":["a64"], "A100":["a100"], "A133":["a133"],
-    "H3":["h3"], "H5":["h5"], "H6":["h6"],
-    "H616":["h616"], "H618":["h618"], "H700":["h700"],
-    "R818":["r818"], "T507":["t507"],
-    # Realtek
-    "RTD1195":["rtd1195","1195"], "RTD1295":["rtd1295","1295"],
-    "RTD1319":["rtd1319","1319"], "RTD1395":["rtd1395","1395"],
-    "RTD1619":["rtd1619","1619"], "RTD1619B":["rtd1619b"],
-    # Qualcomm Snapdragon
-    "SM8650":["sm8650","8 gen 3"], "SM8550":["sm8550","8 gen 2"],
-    "SM8475":["sm8475","8+ gen 1"],"SM8450":["sm8450","8 gen 1"],
-    "SM8350":["sm8350","888","lahaina"], "SM8250":["sm8250","865","kona"],
-    "SM8150":["sm8150","855","msmnile"], "SDM845":["sdm845","845"],
-    "SDM835":["sdm835","835","msm8998"],
-    "SM7550":["sm7550","7 gen 2"], "SM7450":["sm7450","7 gen 1"],
-    "SM7350":["sm7350","778"],     "SM7250":["sm7250","765"],
-    "SM7150":["sm7150","730"],     "SDM710":["sdm710","710"],
-    "SM6375":["sm6375","695"],     "SM6350":["sm6350","690"],
-    "SM6225":["sm6225","680"],     "SDM660":["sdm660","660"],
-    "SM4350":["sm4350","480"],     "SDM450":["sdm450","450"],
-}
-
-def _vendor_from_chip(chip: str) -> str:
-    uc = chip.upper()
-    if uc.startswith(("SC","SL","UIS")): return "unisoc"
-    if uc.startswith("MT"):              return "mtk"
-    if uc.startswith(("RK","PX")):       return "rockchip"
-    if uc.startswith("RTD"):             return "realtek"
-    if uc.startswith(("SM","SDM","MSM","SA","SC7")): return "qualcomm"
-    if uc[0] in "AHR" and len(uc) > 1:  return "allwinner"
-    return "unknown"
-
 def detect_chipset_from_props(props: dict) -> tuple:
-    combined = " ".join([
+    """Detect chipset from Android device properties.
+    Delegates to chipsets.py identify_chip_universal for single-source-of-truth.
+    Returns (vendor, chip_key) tuple.
+    """
+    from modules.chipsets import identify_chip_universal
+    platform = " ".join([
         props.get("ro.board.platform",""),
         props.get("ro.product.board",""),
         props.get("ro.hardware",""),
         props.get("ro.chip.id",""),
-    ]).lower()
-    for chip, sigs in CHIPSET_SIGNATURES.items():
-        for sig in sigs:
-            if sig in combined:
-                return _vendor_from_chip(chip), chip
-    return "unknown", "unknown"
+    ])
+    result = identify_chip_universal(platform)
+    return result.get("vendor", "unknown"), result.get("key", "unknown")
 
 # ── Partition maps for all vendors ────────────────────────────────────────────
 PARTITION_MAPS = {
@@ -182,3 +130,36 @@ PARTITION_MAPS = {
 
 def spinner(msg):
     return Progress(SpinnerColumn(), TextColumn(f"[cyan]{msg}"), transient=True)
+
+
+def check_battery_level(serial: str = None, min_pct: int = 30) -> tuple:
+    """Check device battery level via ADB.
+
+    Returns (ok: bool, pct: int, message: str).
+    ok=False if below min_pct or can't determine.
+    """
+    _, out, _ = run_adb(
+        ["shell", "dumpsys battery 2>/dev/null | grep 'level:' | awk '{print $2}'"],
+        serial=serial, check=False
+    )
+    level_str = out.strip()
+    if level_str and level_str.isdigit():
+        level = int(level_str)
+        if level < min_pct:
+            return (False, level,
+                    f"Battery at {level}% — below {min_pct}% threshold. "
+                    f"Charge device before flashing.")
+        return (True, level, f"Battery at {level}% — OK")
+    # Try sysfs fallback
+    _, out, _ = run_adb(
+        ["shell", "cat /sys/class/power_supply/*/capacity 2>/dev/null | head -1"],
+        serial=serial, check=False
+    )
+    level_str = out.strip()
+    if level_str and level_str.isdigit():
+        level = int(level_str)
+        if level < min_pct:
+            return (False, level,
+                    f"Battery at {level}% — below {min_pct}% threshold.")
+        return (True, level, f"Battery at {level}% — OK")
+    return (True, -1, "Could not determine battery level — proceeding anyway")

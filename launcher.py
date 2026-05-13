@@ -1,7 +1,7 @@
+#!/usr/bin/env python3
 # WatchROM Launcher — ensure PYTHONPATH includes toolkit root
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-#!/usr/bin/env python3
 """
 WatchROM — Interactive Terminal Launcher
 Full TUI menu system for users without developer experience
@@ -30,8 +30,9 @@ try:
     from rich.columns import Columns
     from rich.rule    import Rule
 except ImportError:
+    # Install to user site-packages — avoids breaking system packages
     subprocess.run([sys.executable, "-m", "pip", "install",
-                    "--break-system-packages", "rich", "-q"])
+                    "--user", "rich", "-q"])
     from rich.console import Console
     from rich.panel   import Panel
     from rich.table   import Table
@@ -969,7 +970,7 @@ def handle_dynamic(key: str, menu_name: str, item_label: str, session: dict):
                 if mode == "yes": args.append("--lte-only")
                 run_cmd(args, interactive=True)
         elif "AT command" in item_label:
-            console.print("  [dim]Examples: AT+QNWINFO  AT+CSQ  AT+COPS?  AT+QCFG="band"[/dim]")
+            console.print('  [dim]Examples: AT+QNWINFO  AT+CSQ  AT+COPS?  AT+QCFG="band"[/dim]')
             cmd = Prompt.ask("  AT command", default="AT+QNWINFO")
             run_cmd(["qualcomm","at-cmd","--cmd", cmd], interactive=True)
         elif "Restore EFS" in item_label:

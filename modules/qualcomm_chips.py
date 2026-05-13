@@ -106,6 +106,9 @@ QUALCOMM_MODEMS = {
 }
 
 # ── Common LTE band reference ──────────────────────────────────────────────────
+# Note: Python dict keys must be unique. Each band appears ONCE.
+# If the key is duplicated, Python silently uses the LAST definition.
+# This was a real bug — do not add duplicate keys.
 LTE_BANDS = {
     1:  {"name":"B1",  "freq":"2100 MHz",  "region":"Global"},
     2:  {"name":"B2",  "freq":"1900 MHz",  "region":"Americas"},
@@ -118,33 +121,28 @@ LTE_BANDS = {
     13: {"name":"B13", "freq":"700 MHz",   "region":"Verizon US"},
     14: {"name":"B14", "freq":"700 MHz",   "region":"FirstNet US"},
     17: {"name":"B17", "freq":"700 MHz",   "region":"AT&T US"},
+    18: {"name":"B18", "freq":"850 MHz",   "region":"Japan (au/KDDI)"},
+    19: {"name":"B19", "freq":"850 MHz",   "region":"Japan (Docomo)"},
     20: {"name":"B20", "freq":"800 MHz",   "region":"Europe"},
+    21: {"name":"B21", "freq":"1500 MHz",  "region":"Japan (Docomo)"},
     25: {"name":"B25", "freq":"1900 MHz",  "region":"Sprint/T-Mo"},
     26: {"name":"B26", "freq":"850 MHz",   "region":"Sprint US"},
     28: {"name":"B28", "freq":"700 MHz",   "region":"Asia-Pacific"},
     29: {"name":"B29", "freq":"700 MHz",   "region":"AT&T US (SDL)"},
     30: {"name":"B30", "freq":"2300 MHz",  "region":"AT&T US"},
     38: {"name":"B38", "freq":"2600 MHz",  "region":"China/Europe TDD"},
+    39: {"name":"B39", "freq":"1900 MHz",  "region":"China TDD"},
     40: {"name":"B40", "freq":"2300 MHz",  "region":"Asia TDD"},
     41: {"name":"B41", "freq":"2500 MHz",  "region":"Sprint/T-Mo TDD"},
     42: {"name":"B42", "freq":"3500 MHz",  "region":"Global TDD"},
-    48: {"name":"B48", "freq":"3500 MHz",  "region":"CBRS US"},
-    66: {"name":"B66", "freq":"1700/2100 MHz","region":"Americas AWS-3"},
-    71: {"name":"B71", "freq":"600 MHz",   "region":"T-Mobile US"},
-    # Additional important bands
-    14: {"name":"B14", "freq":"700 MHz",   "region":"FirstNet US (AT&T)"},
-    18: {"name":"B18", "freq":"850 MHz",   "region":"Japan (au/KDDI)"},
-    19: {"name":"B19", "freq":"850 MHz",   "region":"Japan (Docomo)"},
-    21: {"name":"B21", "freq":"1500 MHz",  "region":"Japan (Docomo)"},
-    26: {"name":"B26", "freq":"850 MHz",   "region":"Sprint US / Asia"},
-    34: {"name":"B34", "freq":"2100 MHz",  "region":"China TDD"},
-    39: {"name":"B39", "freq":"1900 MHz",  "region":"China TDD"},
-    41: {"name":"B41", "freq":"2500 MHz",  "region":"Sprint/T-Mobile TDD"},
     46: {"name":"B46", "freq":"5 GHz",     "region":"LTE-U / LAA unlicensed"},
     47: {"name":"B47", "freq":"5 GHz",     "region":"LSA / NR-U"},
-    48: {"name":"B48", "freq":"3500 MHz",  "region":"CBRS US (private LTE/5G)"},
+    48: {"name":"B48", "freq":"3500 MHz",  "region":"CBRS US"},
+    66: {"name":"B66", "freq":"1700/2100 MHz","region":"Americas AWS-3"},
     70: {"name":"B70", "freq":"1900 MHz",  "region":"T-Mobile US (AWS-4 SDL)"},
     71: {"name":"B71", "freq":"600 MHz",   "region":"T-Mobile US"},
+    # China TDD supplemental
+    34: {"name":"B34", "freq":"2100 MHz",  "region":"China TDD"},
 }
 
 # ── Verizon band reference (complete) ────────────────────────────────────────

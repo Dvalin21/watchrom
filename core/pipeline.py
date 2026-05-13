@@ -327,7 +327,7 @@ def _make_root_device_pipeline() -> Pipeline:
                  "Full root workflow: detect → backup → Magisk patch → flash → verify")
 
     def detect(ctx: dict) -> Result:
-        from modules import adb_devices, get_device_props, detect_chipset_from_props
+        from modules import adb_devices, get_device_props, detect_chipset_from_props, check_battery_level
         devs = adb_devices()
         online = [s for s, st in devs if st == "device"]
         if not online:
@@ -339,6 +339,12 @@ def _make_root_device_pipeline() -> Pipeline:
         ctx["vendor"]  = vendor
         ctx["chipset"] = chipset
         ctx["props"]   = props
+        # Battery pre-flight — warn if low
+        bat_ok, bat_pct, bat_msg = check_battery_level(serial)
+        if not bat_ok:
+            return Result.fail(bat_msg)
+        if bat_pct >= 0 and bat_pct < 30:
+            console.print(f"  [yellow]⚠ Battery: {bat_pct}%[/yellow]")
         return Result.ok(f"Device: {serial} ({chipset})",
                          serial=serial, vendor=vendor, chipset=chipset)
 
@@ -596,11 +602,23 @@ def _make_avb_disable_pipeline() -> Pipeline:
             return Result.ok("vbmeta flashed, device rebooting")
         return Result.fail(f"fastboot flash vbmeta failed: {err}")
 
+    def _rollback_vbmeta(ctx: dict) -> None:
+        """Rollback: re-flash the backed-up stock vbmeta."""
+        stock = ctx.get("stock_vbmeta")
+        if not stock or not Path(stock).exists():
+            return  # No backup to restore from — can't roll back
+        from modules import run_fastboot, fastboot_devices
+        import time
+        fb = fastboot_devices()
+        if not fb:
+            return  # Not in fastboot mode — can't roll back
+        run_fastboot(["flash", "vbmeta", str(stock)], serial=fb[0], check=False)
+
     p.add(Task("detect",        detect,        "Detect device",          required=True))
     p.add(Task("backup-vbmeta", backup_vbmeta, "Backup stock vbmeta",    required=False))
     p.add(Task("create-blank",  create_blank,  "Create blank vbmeta",    required=True))
     p.add(Task("flash-vbmeta",  flash_vbmeta,  "Flash via fastboot",     required=True,
-               rollback=lambda ctx: None))
+               rollback=_rollback_vbmeta))
     return p
 
 
@@ -610,6 +628,7 @@ def _make_flash_rom_pipeline() -> Pipeline:
                  "Flash a complete ROM: validate → backup → disable AVB → flash all → verify")
 
     def validate(ctx: dict) -> Result:
+        from modules import check_battery_level, console
         parts_dir = Path(ctx.get("parts_dir", "."))
         if not parts_dir.is_dir():
             return Result.fail(f"Parts directory not found: {parts_dir}")
@@ -618,6 +637,13 @@ def _make_flash_rom_pipeline() -> Pipeline:
             return Result.fail(f"No .img files in {parts_dir}")
         ctx["parts_dir"] = parts_dir
         ctx["images"]    = {img.stem: img for img in imgs}
+        # Battery pre-flight
+        if ctx.get("serial"):
+            bat_ok, bat_pct, bat_msg = check_battery_level(ctx["serial"])
+            if not bat_ok:
+                return Result.fail(bat_msg)
+            if bat_pct >= 0 and bat_pct < 30:
+                console.print(f"  [yellow]⚠ Battery: {bat_pct}% — charge before flashing[/yellow]")
         return Result.ok(f"Found {len(imgs)} images: {[i.stem for i in imgs]}",
                          image_count=len(imgs))
 

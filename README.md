@@ -1,9 +1,60 @@
-**WARNING! USE AT YOUR OWN RISK!**
-####
+> # ⚠️⚠️⚠️ WARNING! USE AT YOUR OWN RISK! ⚠️⚠️⚠️
+>
+> **WatchROM modifies device partitions, boot images, modem configurations,
+> and low-level system properties. Incorrect use can permanently brick your
+> device, corrupt IMEI/calibration data, or trigger anti-rollback fuses.**
+>
+> - **You are responsible for your own device.**
+> - **Always create a full backup before making ANY changes.**
+> - **Some operations (flashing bootloader/preloader/persist/fsg partitions)
+>   are blocked by default and require `--force` — you have been warned.**
+> - **This tool is for educational and development purposes only.**
+> - **Do NOT flash partitions you don't understand.**
+
 # WatchROM — One Kit to Rule Them All
 ### Android ROM Engineering Suite
 
-**109 commands · 29 modules · 5 chipset vendors · Any Android device**
+**109 commands · 29 modules · 6 chipset vendors · Android devices**
+
+---
+
+## Compatibility & Known Limitations
+
+### What Works
+| Capability | Status | Details |
+|------------|--------|---------|
+| MTK chips (MT6739–MT6983) | ✅ Full | BROM, identify, dump, partitions, band config |
+| Unisoc chips (SC9832E–T820) | ✅ Full | FDL, identify, dump, partitions, band config |
+| Rockchip chips (PX30–RK3588) | ✅ Full | MaskROM, identify, dump, partition table |
+| Allwinner chips (A10–H700) | ✅ Full | FEL, identify, dump, SID read, partition table |
+| Realtek chips (RTD1073–RTD1619B) | ✅ Full | Rescue mode, identify, dump, partition table |
+| Qualcomm Snapdragon (SD429–SM8650) | ✅ Full | EDL, EFS, band config, AT commands, DIAG, band presets |
+| Boot image unpack/repack (v0/v1/v2) | ✅ Full | kernel + ramdisk + dtb extraction |
+| Magisk root + WearOS setup | ✅ Tested | Auto-detect, patch, flash, verify |
+| AVB disable (blank vbmeta) | ✅ Tested | Backup + flash via fastboot |
+| ADB/Fastboot flashing (safe partitions) | ✅ Guarded | Danger-zone partitions blocked by default |
+| Full device backup (all partitions) | ✅ Tested | Manifest with SHA256 |
+
+### What Has Limited Support
+| Capability | Status | Reason |
+|------------|--------|--------|
+| **GKI/Android 12+ (v3/v4 boot headers)** | ⚠️ Detected, kernel-only | Ramdisk lives in `vendor_boot.img`/`init_boot.img` — WatchROM warns and extracts kernel only. Full GKI support deferred to v1.1. |
+| **Samsung devices (Exynos/Snapdragon)** | ⚠️ Partial | Samsung uses KVB (Knox) instead of standard AVB. Fastboot-based AVB disable won't work. Heimdall support planned for v1.1. |
+| **Android 12+ ADB backup** | ⚠️ Broken upstream | `adb backup` is functionally broken on API 31+ (apps opt out by default). Use the partition dump + app listing workflow instead. |
+| **MTK Engineering Mode** | ⚠️ Requires GUI app | AT+EPBSE band write works, but full engineering mode requires the MTK Engineering Mode APK. |
+| **Dynamic partitions (super)** | ⚠️ Read-only | Super partition (Android 10+) can be dumped but not flash-merged. Use `fastboot flash super` manually. |
+| **EROFS images** | ⚠️ Read-only | EROFS (Linux 5.4+) system images can be dumped but not re-packed. Use `--read-only` flag. |
+
+### What Does NOT Work
+| Capability | Status | Reason |
+|------------|--------|--------|
+| **Samsung S21+/US Snapdragon Samsung** | ❌ Not possible | Locked bootloader, no EDL. Documented for awareness. |
+| **IMEI/MEID modification** | ❌ By design | Illegal in most countries. WatchROM never touches IMEI. |
+| **RF calibration NV items** | ❌ By design | Factory-set, irreversible. Modifying = permanent signal damage. |
+| **Carrier lock bypass / SIM unlock** | ❌ By design | Illegal, unethical. WatchROM does not support SPC/MSL operations. |
+| **iPhone / iOS devices** | ❌ Not supported | Android-only toolkit. |
+| **Windows-only flashing tools** | ❌ Not bundled | SP Flash Tool, UpgradeDownload, QPST need WINE or Windows VM. |
+| **Bypassing Google Widevine/DRM** | ❌ By design | WatchROM does not include any DRM-circumvention tools. |
 
 ---
 
@@ -475,6 +526,22 @@ mmWave             : separate n260/n261 config in modem firmware
 ---
 
 ## Safety Notes
+
+### Danger-Zone Partitions
+WatchROM blocks flashing of partitions that can **brick your device**:
+- **Bootloaders**: preloader, lk, uboot, abl, xbl, spl — brick if wrong
+- **TrustZone**: tee, trust, tz, hyp — boot security, brick if corrupted
+- **Calibration**: persist, nvram, fsg, modemst — IMEI/MAC/signal loss (may be permanent)
+- **Attestation**: keymaster, cmnlib, keystore — kills biometrics/DRM
+- **Fuses**: otp — one-time programmable, permanent
+- **Boot control**: misc, frp — boot loops if corrupted
+
+Use `--force` only if you have a backup AND know why you're doing it.
+
+### Battery Requirement
+All flash operations require **≥30% battery** to prevent bricking from power loss during write.
+
+### Band Configuration
 
 Band configuration is **standard telecom engineering** — the same operations performed by:
 - Network engineers and carrier technicians

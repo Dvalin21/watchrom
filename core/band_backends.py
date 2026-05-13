@@ -241,11 +241,11 @@ class MTKBandConfig(BandConfigInterface):
 
         # Step 2: set band mask via AT+EPBSE
         # MTK format: AT+EPBSE=<GSM>,<UMTS>,<LTE_low32>,<LTE_high32>
+        # Note: EPBSE only accepts 64 bits total (bands 1-64). Bands 65+
+        # require vendor-specific NV writes. lte_high is intentionally
+        # ignored here — MTK AT interface doesn't support it.
         lte_low32  = lte_low  & 0xFFFFFFFF
         lte_high32 = (lte_low >> 32) & 0xFFFFFFFF
-        # Also incorporate lte_high (bands 65+) into high word
-        if lte_high:
-            lte_high32 |= (lte_high & 0xFFFFFFFF) << 0
 
         epbse = (f"AT+EPBSE=0xFFFFFFFF,0xFFFFFFFF,"
                  f"0x{lte_low32:08X},0x{lte_high32:08X}")

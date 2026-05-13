@@ -40,16 +40,26 @@ def parse_boot_header(img: Path) -> dict:
         "extra_cmdline":      data[608:672].rstrip(b"\x00").decode("utf-8", errors="replace"),
     }
 
-    # v1+: recovery dtbo
-    if hdr["header_version"] >= 1:
+    # v1: recovery dtbo (header_version == 1 or 2, NOT v3/v4)
+    # v3 header = 1640 bytes — 1632+ fields DON'T EXIST
+    # v4 header = 1580 bytes — 1632+ is OUTSIDE header (reads kernel data)
+    if hdr["header_version"] == 1 or hdr["header_version"] == 2:
         hdr["recovery_dtbo_size"]   = struct.unpack_from("<I",  data, 1632)[0]
         hdr["recovery_dtbo_offset"] = struct.unpack_from("<Q",  data, 1636)[0]
         hdr["header_size"]          = struct.unpack_from("<I",  data, 1644)[0]
 
-    # v2+: dtb
-    if hdr["header_version"] >= 2:
+    # v2: dtb (header_version == 2 only — v3/v4 dtb lives in vendor_boot)
+    if hdr["header_version"] == 2:
         hdr["dtb_size"] = struct.unpack_from("<I", data, 1648)[0]
         hdr["dtb_addr"] = struct.unpack_from("<Q", data, 1652)[0]
+
+    # v3/v4: GKI — ramdisk is in vendor_boot.img or init_boot.img
+    if hdr["header_version"] >= 3:
+        hdr["gki"] = True
+        hdr["ramdisk_in_vendor_boot"] = True
+    else:
+        hdr["gki"] = False
+        hdr["ramdisk_in_vendor_boot"] = False
 
     return hdr
 
@@ -61,10 +71,21 @@ def pages(size: int, page_size: int) -> int:
 # ── Unpack ─────────────────────────────────────────────────────────────────────
 
 def unpack_boot(img: Path, out_dir: Path) -> dict:
-    """Unpack boot.img into component files."""
+    """Unpack boot.img into component files.
+
+    v3/v4 (GKI): Only kernel is in boot.img. Ramdisk is in vendor_boot.img
+    or init_boot.img. This function extracts what's available and warns.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     hdr = parse_boot_header(img)
     page = hdr["page_size"]
+
+    # v3/v4 GKI check — only kernel lives in boot.img
+    if hdr.get("gki"):
+        console.print("[yellow]⚠ GKI boot image detected (header v{})[/yellow]".format(
+            hdr["header_version"]))
+        console.print("[yellow]  Ramdisk is NOT in this image — it lives in vendor_boot.img[/yellow]")
+        console.print("[yellow]  or init_boot.img (Android 12+). Only kernel will be extracted.[/yellow]")
 
     with open(img, "rb") as f:
         # Skip header page(s)
@@ -78,19 +99,24 @@ def unpack_boot(img: Path, out_dir: Path) -> dict:
         # Align to next page
         f.seek(page + pages(hdr["kernel_size"], page) * page)
 
-        # Ramdisk
-        ramdisk_data = f.read(hdr["ramdisk_size"])
+        # Ramdisk (size is 0 for GKI v3/v4 — skip silently)
         ramdisk_path = out_dir / "ramdisk.cpio.gz"
-        ramdisk_path.write_bytes(ramdisk_data)
+        if hdr["ramdisk_size"] > 0:
+            ramdisk_data = f.read(hdr["ramdisk_size"])
+            ramdisk_path.write_bytes(ramdisk_data)
+        else:
+            # v3/v4: no ramdisk in boot.img — create empty marker
+            ramdisk_path.write_bytes(b"")
+            console.print("[dim]  (no ramdisk in boot.img — GKI layout)[/dim]")
 
         # Second stage (if any)
         if hdr["second_size"] > 0:
-            f.seek(page + (pages(hdr["kernel_size"], page) +
-                           pages(hdr["ramdisk_size"], page)) * page)
+            ramdisk_pages = pages(hdr["ramdisk_size"], page)
+            f.seek(page + (pages(hdr["kernel_size"], page) + ramdisk_pages) * page)
             second_data = f.read(hdr["second_size"])
             (out_dir / "second").write_bytes(second_data)
 
-        # DTB (v2+)
+        # DTB (v2 only — v3/v4 dtb lives in vendor_boot)
         if hdr.get("dtb_size", 0) > 0:
             dtb_data = f.read(hdr["dtb_size"])
             (out_dir / "dtb").write_bytes(dtb_data)
@@ -100,9 +126,10 @@ def unpack_boot(img: Path, out_dir: Path) -> dict:
     with open(out_dir / "header.json", "w") as f:
         json.dump(hdr, f, indent=2)
 
-    # Detect ramdisk compression and extract
-    ramdisk_dir = out_dir / "ramdisk"
-    extract_ramdisk(ramdisk_path, ramdisk_dir)
+    # Extract ramdisk if present
+    if hdr["ramdisk_size"] > 0:
+        ramdisk_dir = out_dir / "ramdisk"
+        extract_ramdisk(ramdisk_path, ramdisk_dir)
 
     return hdr
 
@@ -278,6 +305,8 @@ def bootimg_unpack(image, out):
         hdr = unpack_boot(img, out_dir)
         console.print(f"\n[bold]Header:[/bold]")
         console.print(f"  Version    : v{hdr['header_version']}")
+        if hdr.get("gki"):
+            console.print(f"  [yellow]GKI        : Yes (ramdisk in vendor_boot.img)[/yellow]")
         console.print(f"  Kernel     : {hdr['kernel_size']//1024} KB")
         console.print(f"  Ramdisk    : {hdr['ramdisk_size']//1024} KB")
         console.print(f"  Page size  : {hdr['page_size']} bytes")
@@ -327,8 +356,11 @@ def bootimg_info(image):
         hdr = parse_boot_header(img)
         console.print(f"\n[bold cyan]Boot Image Header: {img.name}[/bold cyan]\n")
         for k, v in hdr.items():
-            if k != "id":
+            if k not in ("id",):
                 console.print(f"  [cyan]{k:28s}[/cyan] {v}")
+        if hdr.get("gki"):
+            console.print(f"\n  [yellow]⚠ GKI image (header v{hdr['header_version']})[/yellow]")
+            console.print(f"  [yellow]  Ramdisk is in vendor_boot.img or init_boot.img[/yellow]")
     except Exception as e:
         console.print(f"[red]✗ {e}[/red]")
 

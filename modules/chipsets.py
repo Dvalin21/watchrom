@@ -469,6 +469,10 @@ def identify_chip_universal(platform_str: str, hardware_str: str = "") -> dict:
     result = identify_realtek_chip(combined)
     if result: return result
 
+    # Qualcomm
+    result = identify_qualcomm_chip(platform_str, hardware_str)
+    if result: return result
+
     return {"vendor":"unknown","key":"unknown","name":"Unknown SoC","arch":"arm64"}
 
 
@@ -539,20 +543,6 @@ def identify_qualcomm_chip(platform_str: str, hardware_str: str = "") -> dict:
     except ImportError:
         pass
     return {}
-
-
-# Patch identify_chip_universal to include Qualcomm
-_orig_identify_chip_universal = identify_chip_universal
-
-def identify_chip_universal(platform_str: str, hardware_str: str = "") -> dict:
-    result = _orig_identify_chip_universal(platform_str, hardware_str)
-    if result.get("vendor","unknown") != "unknown":
-        return result
-    # Try Qualcomm
-    qc = identify_qualcomm_chip(platform_str, hardware_str)
-    if qc:
-        return qc
-    return result
 
 
 # Flash tool for Qualcomm

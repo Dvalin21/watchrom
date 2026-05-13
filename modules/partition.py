@@ -1,6 +1,11 @@
 """
 partition.py — Dump and flash partitions via ADB/Fastboot
 Supports MTK and Unisoc layouts with /dev/block/by-name resolution
+
+DANGER-ZONE PARTITIONS:
+  Some partitions MUST NOT be flashed unless you know exactly what you're
+  doing. Flashing these can brick the device, corrupt calibration data
+  (IMEI, MAC, sensor data), or trigger anti-rollback fuses.
 """
 import click
 import time
@@ -11,6 +16,95 @@ from modules import (
     detect_chipset_from_props, PARTITION_MAPS, OUTPUT_DIR,
     sha256_file, file_size_mb, console
 )
+
+# ── Danger-zone partitions ─────────────────────────────────────────────────────
+# NEVER flash these unless you have a backup AND know why you're doing it.
+# Flashing these = high probability of brick or permanent damage.
+DANGER_PARTITIONS = frozenset({
+    # Bootloaders (brick if wrong)
+    "preloader", "lk", "lk_a", "lk_b",
+    "uboot", "uboot_a", "uboot_b", "spl", "u-boot-spl",
+    "bootloader", "bootloader_a", "bootloader_b",
+    "abl", "abl_a", "abl_b", "xbl", "xbl_a", "xbl_b",
+    "xbl_config", "xbl_config_a", "xbl_config_b",
+    # TrustZone / secure world (brick if wrong)
+    "tee", "tee1", "tee2", "trust", "trust_a", "trust_b",
+    "tz", "tz_a", "tz_b", "hyp",
+    # Hardware attestation (brick biometrics / DRM)
+    "keymaster", "keystore", "cmnlib", "cmnlib64",
+    "sec", "storsec", "limits",
+    # Modem calibration (IMEI / signal loss — may be unrecoverable)
+    "persist", "nvram", "nvcfg", "nvdata",
+    "fsg", "modemst1", "modemst2",
+    "protect1", "protect2", "proinfo",
+    # Fuses / one-time programmable (write-once)
+    "otp", "secro",
+    # Boot control (boot loops if corrupted)
+    "misc", "frp",
+    # Encryption / userdata access
+    "metadata", "keystore",
+    # Power management (Qualcomm — bad RPM = no boot)
+    "rpm", "rpm_a", "rpm_b",
+    # Resource / power management (MTK)
+    "para", "expdb",
+    # Device tree / chip configuration
+    "logo", "bootconfig",
+})
+
+
+def is_danger_partition(partition: str) -> tuple:
+    """Check if partition is in the danger zone.
+
+    Returns (is_dangerous: bool, reason: str).
+    """
+    p = partition.lower()
+    # Strip A/B slot suffixes (_a, _b) and numeric suffixes (1, 2, 3)
+    if p.endswith("_a") or p.endswith("_b"):
+        p = p[:-2]
+    # Strip trailing digits (tee1→tee, protect2→protect, modemst1→modemst)
+    while p and p[-1].isdigit():
+        p = p[:-1]
+    reasons = {
+        "preloader":  "Boot ROM loader — brick if corrupted",
+        "lk":         "Little Kernel bootloader — brick if wrong",
+        "bootloader": "Bootloader partition — brick if corrupted",
+        "uboot":      "U-Boot bootloader — brick if wrong",
+        "spl":        "Secondary Program Loader — brick if corrupted",
+        "abl":        "Qualcomm Android Bootloader — brick if wrong",
+        "xbl":        "Qualcomm eXtensible BootLoader — brick if wrong",
+        "tee":        "Trusted Execution Environment — brick if wrong",
+        "trust":      "TrustZone firmware — brick if corrupted",
+        "tz":         "TrustZone firmware — brick if wrong",
+        "hyp":        "Hypervisor — brick if corrupted",
+        "keymaster":  "Hardware key attestation — kills biometrics",
+        "cmnlib":     "Common library (security) — brick if wrong",
+        "persist":    "Device calibration data — IMEI/MAC loss, unrecoverable",
+        "nvram":      "Radio calibration — IMEI corruption risk",
+        "modemst":    "Modem storage — signal/IMEI loss",
+        "fsg":        "Filesystem golden copy — modem calibration loss",
+        "protect":    "Protected storage — DRM/account loss",
+        "proinfo":    "Product info (serial/board ID) — brick if corrupted",
+        "otp":        "One-time programmable fuses — permanent if blown",
+        "misc":       "Bootloader control block — boot loop if corrupted",
+        "frp":        "Factory Reset Protection — may lock device",
+        "metadata":   "Userdata encryption metadata — data loss",
+        "rpm":        "Resource Power Manager — Qualcomm, no boot if wrong",
+        "logo":       "Boot logo partition — safe to flash, cosmetic only",
+        "para":       "MTK partition table — brick if corrupted",
+        "limits":     "Qualcomm power limit configuration — boot issues if wrong",
+        "xbl_config": "Qualcomm XBL configuration — bootloader brick if corrupted",
+    }
+    if p == "logo":
+        return True, "Boot logo — safe to flash, but cosmetic brick if wrong. Use --force."
+    if p in reasons:
+        return True, reasons[p]
+    if p.startswith("protect"):
+        return True, "Protected storage area"
+    if p.startswith("modemst"):
+        return True, "Modem storage partition"
+    return False, ""
+
+
 
 
 def resolve_block_node(partition: str, serial=None) -> str:
@@ -178,7 +272,8 @@ def dump(partition, serial, dump_all, out, use_fb):
 @click.option("--method",  "-m",
               type=click.Choice(["fastboot","adb","auto"]), default="auto")
 @click.option("--no-verify", is_flag=True, help="Skip post-flash verification")
-def flash(partition, image, serial, method, no_verify):
+@click.option("--force", "-f", is_flag=True, help="Override danger-zone check")
+def flash(partition, image, serial, method, no_verify, force):
     """Flash an image file to a device partition."""
     img_path = Path(image)
     if not img_path.exists():
@@ -191,6 +286,19 @@ def flash(partition, image, serial, method, no_verify):
     console.print(f"  Partition : [green]{partition}[/green]")
     console.print(f"  Image     : {img_path.name} ({size:.1f} MB)")
     console.print(f"  SHA256    : {chk[:24]}…")
+
+    # Danger-zone check
+    dangerous, reason = is_danger_partition(partition)
+    if dangerous:
+        danger_msg = f"\n[red]⚠ DANGER ZONE: {partition}[/red]\n  {reason}"
+        if force:
+            console.print(danger_msg)
+            console.print(f"[bold yellow]  --force set. Proceeding at your own risk.[/bold yellow]")
+        else:
+            console.print(danger_msg)
+            console.print(f"\n  [yellow]Use [bold]--force[/bold] if you are sure you want to flash this partition.[/yellow]")
+            console.print(f"  [yellow]Some partitions can permanently brick your device.[/yellow]")
+            return
 
     # Confirm
     if not click.confirm("\n[yellow]⚠ This will overwrite the partition. Continue?[/yellow]", default=False):

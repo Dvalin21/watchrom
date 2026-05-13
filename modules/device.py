@@ -138,10 +138,11 @@ def device_info(serial):
     console.print(part_table)
 
     # ── Bootloader lock state ──────────────────────────────────────────────────
+    # Note: We use ONLY "getvar unlocked" here. "getvar all" is known to HANG
+    # indefinitely on Xiaomi, OnePlus, and Motorola devices. See XDA consensus.
     _, fb_out, _ = run_fastboot(["getvar", "unlocked"], serial=target, check=False)
-    _, fb_out2, _ = run_fastboot(["getvar", "all"], serial=target, check=False)
     lock_state = "unknown"
-    for line in (fb_out + fb_out2).splitlines():
+    for line in fb_out.splitlines():
         if "unlocked" in line.lower():
             lock_state = "UNLOCKED" if "yes" in line.lower() else "LOCKED"
             break
