@@ -473,6 +473,14 @@ def identify_chip_universal(platform_str: str, hardware_str: str = "") -> dict:
     result = identify_qualcomm_chip(platform_str, hardware_str)
     if result: return result
 
+    # Samsung Exynos
+    try:
+        from modules.samsung import identify_exynos
+        result = identify_exynos(platform_str)
+        if result: return result
+    except ImportError:
+        pass
+
     return {"vendor":"unknown","key":"unknown","name":"Unknown SoC","arch":"arm64"}
 
 

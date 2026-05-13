@@ -264,7 +264,7 @@ BAND_PRESETS = {
         "notes":     "Conservative — core Verizon bands only, LTE only",
     },
     "us_verizon_cbrs": {
-        "lte": "0x0000214008880200",
+        "lte": "0x000080000000101A",
         "nr":  "0x0000000000008118",
         "desc": "Verizon + CBRS (B48/n48): B2/4/5/13/48/66 + n48/n77/n260/n261",
         "lte_bands": [2, 4, 5, 13, 48, 66],
@@ -280,7 +280,7 @@ BAND_PRESETS = {
         "notes":     "T-Mobile primary 5G: n41 (2.5GHz mid-band), n71 (600MHz coverage)",
     },
     "us_att_full": {
-        "lte": "0x000000003001205A",
+        "lte": "0x000000003001005A",
         "nr":  "0x0000000000000008",
         "desc": "AT&T full: B2/4/5/7/17/29/30/66 + n77/n78",
         "lte_bands": [2, 4, 5, 7, 17, 29, 30, 66],
@@ -296,7 +296,7 @@ BAND_PRESETS = {
         "notes":     "B14 is FirstNet priority spectrum — first responder network",
     },
     "us_dish_boost": {
-        "lte": "0x0000010000000002",
+        "lte": "0x0000000000000002",
         "nr":  "0x0000000000002080",
         "desc": "Dish/Boost: B2/B66 LTE + n66/n70 5G",
         "lte_bands": [2, 66],
@@ -304,7 +304,7 @@ BAND_PRESETS = {
         "notes":     "Dish Network uses AWS spectrum (B66/n66) as primary",
     },
     "us_cbrs_only": {
-        "lte": "0x0000000080000000",
+        "lte": "0x0000800000000000",
         "nr":  "0x0000000000008000",
         "desc": "CBRS only: B48 LTE + n48 5G (private/enterprise networks)",
         "lte_bands": [48],
@@ -313,63 +313,63 @@ BAND_PRESETS = {
     },
     # ── International carriers ────────────────────────────────────────────
     "uk_full": {
-        "lte": "0x000000000009A28B",
+        "lte": "0x00000000080800CF",
         "nr":  "0x0000000000004000",
         "desc": "UK all carriers: B1/2/3/4/7/8/20/28 + n78",
         "lte_bands": [1, 2, 3, 4, 7, 8, 20, 28],
         "nr_bands":  ["n78"],
     },
     "eu_full": {
-        "lte": "0x000000000009A22B",
+        "lte": "0x00000000080800D7",
         "nr":  "0x0000000000006000",
         "desc": "Europe full: B1/2/3/5/7/8/20/28 + n78/n79",
         "lte_bands": [1, 2, 3, 5, 7, 8, 20, 28],
         "nr_bands":  ["n78","n79"],
     },
     "canada_full": {
-        "lte": "0x000001000D8A08AA",
+        "lte": "0x000001000100081A",
         "nr":  "0x0000000000002002",
         "desc": "Canada: B2/4/5/12/25/41/66/71 + n41/n66",
         "lte_bands": [2, 4, 5, 12, 25, 41, 66, 71],
         "nr_bands":  ["n41","n66"],
     },
     "australia_full": {
-        "lte": "0x0000000008108823",
+        "lte": "0x0000008008000057",
         "nr":  "0x0000000000004000",
         "desc": "Australia: B1/2/3/5/7/28/40 + n78",
         "lte_bands": [1, 2, 3, 5, 7, 28, 40],
         "nr_bands":  ["n78"],
     },
     "japan_full": {
-        "lte": "0x0000000040108923",
+        "lte": "0x0000020008160087",
         "nr":  "0x0000000000078000",
         "desc": "Japan: B1/2/3/8/18/19/21/28/42 + n77/n78/n79",
         "lte_bands": [1, 2, 3, 8, 18, 19, 21, 28, 42],
         "nr_bands":  ["n77","n78","n79"],
     },
     "korea_full": {
-        "lte": "0x000000004008A061",
+        "lte": "0x00000200000200F5",
         "nr":  "0x0000000000004000",
         "desc": "South Korea: B1/3/5/6/7/8/18/42 + n78",
         "lte_bands": [1, 3, 5, 6, 7, 8, 18, 42],
         "nr_bands":  ["n78"],
     },
     "india_full": {
-        "lte": "0x0000000000108823",
+        "lte": "0x0000008008000017",
         "nr":  "0x0000000000004000",
         "desc": "India: B1/2/3/5/28/40 + n78",
         "lte_bands": [1, 2, 3, 5, 28, 40],
         "nr_bands":  ["n78"],
     },
     "china_full": {
-        "lte": "0x0000000201800027",
+        "lte": "0x000001E20000001F",
         "nr":  "0x0000000000068000",
         "desc": "China: B1/2/3/4/5/34/38/39/40/41 + n41/n78/n79",
         "lte_bands": [1, 2, 3, 4, 5, 34, 38, 39, 40, 41],
         "nr_bands":  ["n41","n78","n79"],
     },
     "latam_full": {
-        "lte": "0x00000000000D8A2B",
+        "lte": "0x000000000800085F",
         "nr":  "0x0000000000002000",
         "desc": "Latin America: B1/2/3/4/5/7/12/28/66 + n66",
         "lte_bands": [1, 2, 3, 4, 5, 7, 12, 28, 66],
@@ -411,3 +411,134 @@ def identify_snapdragon(platform_str: str, hardware_str: str = "") -> dict:
 def get_modem_info(modem_name: str) -> dict:
     """Return modem capability dict for a given X-series modem."""
     return QUALCOMM_MODEMS.get(modem_name, {})
+
+
+# ── Band mask computation ──────────────────────────────────────────────────────
+
+def compute_lte_mask(bands: list[int]) -> tuple[int, int]:
+    """Compute 128-bit LTE band mask from list of band numbers.
+
+    Bit position = band_number - 1  (per 3GPP/Qualcomm NV 6828 standard).
+    Bands 1-64   → low 64-bit word
+    Bands 65-128 → high 64-bit word (bit = band_number - 65)
+
+    Returns (low_64bit, high_64bit) as Python ints.
+    Example:
+        compute_lte_mask([2, 4, 13]) → (0x000000000000100A, 0)
+        # B2=bit1, B4=bit3, B13=bit12
+    """
+    low = 0
+    high = 0
+    for band in bands:
+        bit = band - 1
+        if bit < 0:
+            continue  # ignore invalid
+        if bit < 64:
+            low |= 1 << bit
+        else:
+            high |= 1 << (bit - 64)
+    return low, high
+
+
+def compute_lte_mask_hex(bands: list[int]) -> tuple[str, str]:
+    """Compute LTE hex mask strings from band list.
+
+    Returns (hex_low, hex_high) as '0x...' strings ready for CARRIER_PROFILES.
+    """
+    low, high = compute_lte_mask(bands)
+    return (f"0x{low:016X}", f"0x{high:016X}")
+
+
+# NR band-to-bit mapping (Qualcomm NV 7296 — firmware-specific, best-effort)
+# This table is derived from common Qualcomm MBN configs found across devices.
+# Different firmware versions may use different mappings.
+NR_BAND_BITS = {
+    "n1":   0,   "n2":   1,   "n3":   2,   "n5":   3,
+    "n7":   4,   "n8":   5,   "n12":  6,   "n13":  7,
+    "n14":  8,   "n18":  9,   "n20": 10,   "n25": 11,
+    "n26": 12,   "n28": 13,   "n30": 14,   "n38": 15,
+    "n40": 16,   "n41": 17,   "n48": 18,   "n50": 19,
+    "n66": 20,   "n70": 21,   "n71": 22,   "n77": 23,
+    "n78": 24,   "n79": 25,   "n257": 60,  "n258": 61,
+    "n260": 62,  "n261": 63,
+}
+
+
+def compute_nr_mask(bands: list[str]) -> int:
+    """Compute NR band mask from list of NR band names.
+
+    Uses NR_BAND_BITS table — this is firmware-specific and may need
+    adjustment for your device. See --nr-mapping option for custom overrides.
+
+    Returns 64-bit int mask.
+    """
+    mask = 0
+    for b in bands:
+        b = b.lower().strip()
+        bit = NR_BAND_BITS.get(b)
+        if bit is not None:
+            mask |= 1 << bit
+    return mask
+
+
+def compute_nr_mask_hex(bands: list[str]) -> str:
+    """Compute NR hex mask string from NR band list."""
+    return f"0x{compute_nr_mask(bands):016X}"
+
+
+def verify_band_presets():
+    """Check all BAND_PRESETS LTE masks against computed masks from band lists.
+
+    NOTE: NR masks are NOT verified here because NR band-to-bit mapping is
+    firmware-specific (defined in the modem MBN) and cannot be computed
+    from band numbers alone. Use --derive-masks with 'bands apply' for
+    best-effort NR mask derivation.
+
+    Returns list of LTE mismatches: [(preset_name, 'lte', expected, actual, bands), ...]
+    """
+    mismatches = []
+    for name, preset in BAND_PRESETS.items():
+        lte_bands = preset.get("lte_bands")
+        if not lte_bands:
+            continue
+
+        expected_low, _ = compute_lte_mask(lte_bands)
+        # BAND_PRESETS stores 64-bit low only
+        actual = int(preset.get("lte", "0x0"), 16)
+        if actual != expected_low:
+            mismatches.append((
+                name, "lte",
+                f"0x{expected_low:016X}", f"0x{actual:016X}",
+                lte_bands
+            ))
+
+    return mismatches
+
+
+def verify_carrier_masks(profiles: dict) -> list:
+    """Check CARRIER_PROFILES LTE hex masks against their band lists.
+
+    NOTE: NR masks are NOT verified here (firmware-specific mapping).
+    Use --derive-masks for best-effort NR derivation.
+
+    Returns list of LTE mismatches.
+    """
+    mismatches = []
+    for name, profile in profiles.items():
+        lte_bands = profile.get("lte_bands", [])
+        if not lte_bands:
+            continue
+
+        expected_low, expected_high = compute_lte_mask(lte_bands)
+        actual_low = int(profile.get("lte_hex_low", "0x0"), 16)
+        actual_high = int(profile.get("lte_hex_high", "0x0"), 16)
+
+        if actual_low != expected_low or actual_high != expected_high:
+            mismatches.append((
+                name, "lte",
+                f"0x{expected_low:016X},0x{expected_high:016X}",
+                f"0x{actual_low:016X},0x{actual_high:016X}",
+                lte_bands
+            ))
+
+    return mismatches

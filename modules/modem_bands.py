@@ -19,7 +19,10 @@ from modules import (
     run, run_adb, adb_devices, get_device_props,
     detect_chipset_from_props, OUTPUT_DIR, WORKSPACE, console
 )
-from modules.qualcomm_chips import BAND_PRESETS, LTE_BANDS, NR_BANDS, VERIZON_BANDS
+from modules.qualcomm_chips import (
+    BAND_PRESETS, LTE_BANDS, NR_BANDS, VERIZON_BANDS,
+    compute_lte_mask_hex, compute_nr_mask_hex, verify_carrier_masks
+)
 
 # ── MTK band config reference ──────────────────────────────────────────────────
 # MTK Engineering Mode app provides a GUI, but we can also write via AT commands
@@ -93,8 +96,8 @@ CARRIER_PROFILES = {
             "For best coverage: enable B2+B4+B5+B13+B66",
             "For 5G priority: add n5+n77",
         ],
-        "lte_hex_low":  "0x0000000008880200",
-        "lte_hex_high": "0x0000000000020001",  # B66 in upper word
+        "lte_hex_low":  "0x000080000000101A",
+        "lte_hex_high": "0x0000000000000002",  # B66 in upper word
         "nr_hex":       "0x0000000000000118",
     },
     "tmobile": {
@@ -110,8 +113,8 @@ CARRIER_PROFILES = {
             "B12 is nationwide coverage, B41 is capacity in cities",
             "B25/B26 = Sprint legacy bands (still active after merger)",
         ],
-        "lte_hex_low":  "0x000001000D8A08AA",
-        "lte_hex_high": "0x0000000000000000",
+        "lte_hex_low":  "0x000001000300081A",
+        "lte_hex_high": "0x0000000000000042",
         "nr_hex":       "0x0000000000020002",
     },
     "att": {
@@ -127,8 +130,8 @@ CARRIER_PROFILES = {
             "B29 is downlink-only supplemental (SDL)",
             "n77 C-band = AT&T 5G+ (fast mid-band)",
         ],
-        "lte_hex_low":  "0x0000000000CA0200",
-        "lte_hex_high": "0x0000000000020001",
+        "lte_hex_low":  "0x000000003001205A",
+        "lte_hex_high": "0x0000000000000002",
         "nr_hex":       "0x0000000000000018",
     },
     "firstnet": {
@@ -142,8 +145,8 @@ CARRIER_PROFILES = {
             "B14 is dedicated FirstNet spectrum (highest priority)",
             "Required for first responder devices",
         ],
-        "lte_hex_low":  "0x0000000000CA2200",
-        "lte_hex_high": "0x0000000000000001",
+        "lte_hex_low":  "0x000000003001200A",
+        "lte_hex_high": "0x0000000000000000",
         "nr_hex":       "0x0000000000000008",
     },
     "dish_boost": {
@@ -157,8 +160,8 @@ CARRIER_PROFILES = {
             "Dish uses AWS spectrum (B66/n66) as primary",
             "n70 = 1700/2100 MHz AWS-4",
         ],
-        "lte_hex_low":  "0x0000000002000002",
-        "lte_hex_high": "0x0000000000020001",
+        "lte_hex_low":  "0x0000010002000002",
+        "lte_hex_high": "0x0000000000000002",
         "nr_hex":       "0x0000000000002080",
     },
     "cbrs": {
@@ -173,7 +176,7 @@ CARRIER_PROFILES = {
             "Used for private enterprise LTE/5G deployments",
             "Available on Verizon, some MVNO, and private networks",
         ],
-        "lte_hex_low":  "0x0000000080000000",
+        "lte_hex_low":  "0x0000800000000000",
         "lte_hex_high": "0x0000000000000000",
         "nr_hex":       "0x0000000000008000",
     },
@@ -186,7 +189,7 @@ CARRIER_PROFILES = {
         "primary_lte": 3,
         "primary_nr":  "n78",
         "notes": ["B20 (800MHz) = UK primary coverage","n78 = UK 5G main"],
-        "lte_hex_low":  "0x000000000009A08B",
+        "lte_hex_low":  "0x00000000080800C7",
         "lte_hex_high": "0x0000000000000000",
         "nr_hex":       "0x0000000000004009",
     },
@@ -198,7 +201,7 @@ CARRIER_PROFILES = {
         "primary_lte": 3,
         "primary_nr":  "n78",
         "notes": ["EE B3+B7+B20 = standard UK coverage","n78 = EE 5G"],
-        "lte_hex_low":  "0x000000000809A042",
+        "lte_hex_low":  "0x00000000880800C5",
         "lte_hex_high": "0x0000000000000000",
         "nr_hex":       "0x0000000000004009",
     },
@@ -210,7 +213,7 @@ CARRIER_PROFILES = {
         "primary_lte": 3,
         "primary_nr":  "n78",
         "notes": ["Works across DE/FR/IT/ES/NL and most EU carriers"],
-        "lte_hex_low":  "0x0000000001098023",
+        "lte_hex_low":  "0x00000020080800D5",
         "lte_hex_high": "0x0000000000000000",
         "nr_hex":       "0x0000000000006009",
     },
@@ -222,8 +225,8 @@ CARRIER_PROFILES = {
         "primary_lte": 4,
         "primary_nr":  "n77",
         "notes": ["B4/B66 AWS = Rogers primary","n77 C-band = Rogers 5G+"],
-        "lte_hex_low":  "0x0000000000020232",
-        "lte_hex_high": "0x0000000000020001",
+        "lte_hex_low":  "0x000000000001085A",
+        "lte_hex_high": "0x0000000000000002",
         "nr_hex":       "0x0000000000002008",
     },
     "australia_telstra": {
@@ -234,7 +237,7 @@ CARRIER_PROFILES = {
         "primary_lte": 28,
         "primary_nr":  "n78",
         "notes": ["B28 (700MHz) = Telstra coverage band","n78 3.5GHz = 5G"],
-        "lte_hex_low":  "0x0000000008108823",
+        "lte_hex_low":  "0x0000008008000055",
         "lte_hex_high": "0x0000000000000000",
         "nr_hex":       "0x0000000000004010",
     },
@@ -250,7 +253,7 @@ CARRIER_PROFILES = {
             "B21 (1500MHz) = Docomo supplementary",
             "n257 mmWave = Docomo 5G in dense urban areas",
         ],
-        "lte_hex_low":  "0x0000000040140845",
+        "lte_hex_low":  "0x0000020008140005",
         "lte_hex_high": "0x0000000000000000",
         "nr_hex":       "0x0000000000078000",
     },
@@ -262,7 +265,7 @@ CARRIER_PROFILES = {
         "primary_lte": 1,
         "primary_nr":  "n78",
         "notes": ["Korea 5G leaders","n257/n258 mmWave = 28GHz/26GHz 5G"],
-        "lte_hex_low":  "0x0000000040008865",
+        "lte_hex_low":  "0x00000200000000D5",
         "lte_hex_high": "0x0000000000000000",
         "nr_hex":       "0x0000000000024000",
     },
@@ -278,7 +281,7 @@ CARRIER_PROFILES = {
             "B3+B5 = coverage supplement",
             "n78 3.5GHz = Jio 5G True 5G",
         ],
-        "lte_hex_low":  "0x0000000100000824",
+        "lte_hex_low":  "0x0000008000000014",
         "lte_hex_high": "0x0000000000000000",
         "nr_hex":       "0x0000000000006010",
     },
@@ -290,7 +293,7 @@ CARRIER_PROFILES = {
         "primary_lte": 3,
         "primary_nr":  "n41",
         "notes": ["CT uses SA 5G network","n41 2.5GHz = primary 5G"],
-        "lte_hex_low":  "0x0000000101040825",
+        "lte_hex_low":  "0x0000018000020015",
         "lte_hex_high": "0x0000000000000000",
         "nr_hex":       "0x0000000000068002",
     },
@@ -306,8 +309,8 @@ CARRIER_PROFILES = {
             "Device will search more bands (slightly more battery use)",
             "Recommended for international travel",
         ],
-        "lte_hex_low":  "0x00007FFFFFFFFFFF",
-        "lte_hex_high": "0x00007FFFFFFFFFFF",
+        "lte_hex_low":  "0xFFFFFFFFFFFFFFFF",
+        "lte_hex_high": "0x000000000000000F",
         "nr_hex":       "0x7FFFFFFFFFFFFFFF",
     },
 }
@@ -669,7 +672,9 @@ def bands_verizon(serial, tier, dry_run):
               type=click.Choice(["auto","at","efs","nvram"]),
               default="auto",
               help="Write method (auto=detect best)")
-def bands_apply(carrier, serial, dry_run, method):
+@click.option("--derive-masks", is_flag=True,
+              help="Auto-derive hex masks from band lists instead of using stored values")
+def bands_apply(carrier, serial, dry_run, method, derive_masks):
     """
     Apply a carrier's full LTE + 5G band profile to the device.
 
@@ -678,10 +683,21 @@ def bands_apply(carrier, serial, dry_run, method):
 
     Example:
       watchrom bands apply --carrier verizon
-      watchrom bands apply --carrier tmobile
-      watchrom bands apply --carrier eu_generic
+      watchrom bands apply --carrier tmobile --derive-masks
     """
-    profile = CARRIER_PROFILES[carrier]
+    profile = dict(CARRIER_PROFILES[carrier])
+
+    # Derive hex masks from band lists if requested
+    if derive_masks and profile.get("lte_bands"):
+        low, high = compute_lte_mask_hex(profile["lte_bands"])
+        profile["lte_hex_low"] = low
+        profile["lte_hex_high"] = high
+        console.print(f"  [dim]Derived LTE masks: {low}, high={high}[/dim]")
+        nr_all = profile.get("nr_sub6", []) + profile.get("nr_mmwave", [])
+        if nr_all:
+            profile["nr_hex"] = compute_nr_mask_hex(nr_all)
+            console.print(f"  [dim]Derived NR mask: {profile['nr_hex']}[/dim]")
+
     console.print(f"\n[bold cyan]Band Apply — {profile['display']}[/bold cyan]\n")
     console.print(f"  LTE: {', '.join(f'B{b}' for b in profile['lte_bands'])}")
     console.print(f"  5G:  {', '.join(profile['nr_sub6'])}")
@@ -880,6 +896,33 @@ def bands_restore(backup_dir, serial):
     console.print("\n[yellow]To restore, apply 'all_bands' preset to re-enable all bands:[/yellow]")
     console.print("  [bold]watchrom bands apply --carrier global_roaming[/bold]")
     console.print("  [bold]watchrom qualcomm band-set --preset all_bands[/bold] (Qualcomm)")
+
+
+@bands.command("verify-masks")
+def bands_verify_masks():
+    """Verify all carrier profile masks match computed values from band lists.
+
+    Flags profiles where the stored hex mask doesn't match the
+    mathematically computed mask from the band number list.
+    Use --derive-masks with 'bands apply' to auto-correct at write time.
+    """
+    console.print(f"\n[bold cyan]Verify Band Masks[/bold cyan]\n")
+
+    mismatches = verify_carrier_masks(CARRIER_PROFILES)
+    if not mismatches:
+        console.print("[green]✓ All LTE hex masks match their band lists![/green]")
+        return
+
+    console.print(f"[yellow]⚠ {len(mismatches)} profiles with mismatched masks:[/yellow]\n")
+    for name, field, expected, actual, bands in mismatches[:20]:
+        console.print(f"  [bold]{name}[/bold] ({field})")
+        console.print(f"    Expected: {expected}")
+        console.print(f"    Actual:   {actual}")
+        console.print(f"    Bands:    {bands}")
+        console.print()
+    if len(mismatches) > 20:
+        console.print(f"  ... and {len(mismatches) - 20} more\n")
+    console.print("[dim]Fix: use --derive-masks with 'bands apply' to auto-derive[/dim]")
 
 
 @bands.command("mtk-engmode")

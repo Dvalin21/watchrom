@@ -335,6 +335,15 @@ def _make_root_device_pipeline() -> Pipeline:
         serial = ctx.get("serial") or online[0]
         props  = get_device_props(serial)
         vendor, chipset = detect_chipset_from_props(props)
+        # Check for Samsung (overrides vendor for KVB handling)
+        try:
+            from modules.samsung import is_samsung_device
+            if is_samsung_device(props):
+                ctx["is_samsung"] = True
+                console.print("  [yellow]⚠ Samsung device detected — KVB not AVB[/yellow]")
+                console.print("  [yellow]  Standard vbmeta disable will NOT work.[/yellow]")
+        except ImportError:
+            pass
         ctx["serial"]  = serial
         ctx["vendor"]  = vendor
         ctx["chipset"] = chipset
@@ -346,7 +355,8 @@ def _make_root_device_pipeline() -> Pipeline:
         if bat_pct >= 0 and bat_pct < 30:
             console.print(f"  [yellow]⚠ Battery: {bat_pct}%[/yellow]")
         return Result.ok(f"Device: {serial} ({chipset})",
-                         serial=serial, vendor=vendor, chipset=chipset)
+                         serial=serial, vendor=vendor, chipset=chipset,
+                         is_samsung=ctx.get("is_samsung", False))
 
     def backup(ctx: dict) -> Result:
         serial = ctx["serial"]
@@ -550,8 +560,22 @@ def _make_avb_disable_pipeline() -> Pipeline:
         serial = ctx.get("serial") or online[0]
         props = get_device_props(serial)
         vendor, chipset = detect_chipset_from_props(props)
-        ctx.update({"serial": serial, "vendor": vendor, "chipset": chipset})
-        return Result.ok(f"{serial} ({chipset})")
+        ctx.update({"serial": serial, "vendor": vendor,
+                     "chipset": chipset, "props": props})
+        # Samsung KVB check
+        try:
+            from modules.samsung import is_samsung_device
+            if is_samsung_device(props):
+                ctx["is_samsung"] = True
+                ctx["samsung_kvb"] = True
+                console.print("  [yellow]⚠ Samsung KVB device — AVB disable not supported[/yellow]")
+                console.print("  [yellow]  Samsung uses Knox Verified Boot, not standard AVB.[/yellow]")
+                console.print("  [yellow]  Unlock via: Settings → Developer Options → OEM Unlock[/yellow]")
+                console.print("  [yellow]  Then: Reboot to Download Mode, long-press Vol+[/yellow]")
+        except ImportError:
+            pass
+        return Result.ok(f"{serial} ({chipset})",
+                         is_samsung=ctx.get("is_samsung", False))
 
     def backup_vbmeta(ctx: dict) -> Result:
         from modules.partition import dump_partition_adb
@@ -578,6 +602,17 @@ def _make_avb_disable_pipeline() -> Pipeline:
     def flash_vbmeta(ctx: dict) -> Result:
         from modules import run_adb, fastboot_devices, run_fastboot
         import time
+
+        # Samsung KVB devices cannot use fastboot vbmeta disable
+        if ctx.get("samsung_kvb") or ctx.get("is_samsung"):
+            console.print("  [yellow]  Samsung KVB: fastboot vbmeta flash will NOT work.[/yellow]")
+            console.print("  [yellow]  Bootloader must be unlocked via Download Mode.[/yellow]")
+            console.print("  [yellow]  See: https://forum.xda-developers.com/t/how-to-unlock-samsung-bootloader[/yellow]")
+            if ctx.get("skip_vbmeta"):
+                return Result.skip("Samsung KVB — vbmeta flash skipped (use Magisk)")
+            # Try anyway (some users use custom vbmeta)
+            console.print("  [yellow]  Attempting flash anyway (likely to fail)...[/yellow]")
+
         serial = ctx["serial"]
         blank  = Path(ctx["blank_vbmeta"])
         run_adb(["reboot", "bootloader"], serial=serial, check=False)

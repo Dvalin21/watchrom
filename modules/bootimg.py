@@ -11,7 +11,14 @@ from modules import (
     run, OUTPUT_DIR, WORKSPACE, sha256_file, file_size_mb, console, tool_available
 )
 
-ANDROID_MAGIC = b"ANDROID!"
+ANDROID_MAGIC     = b"ANDROID!"
+VENDOR_BOOT_MAGIC = b"VNDRBOOT"
+
+# VENDOR_BOOT header v3: 72 bytes, v4: 100 bytes
+# For a v3/v4 GKI device:
+#   boot.img        → kernel only (no ramdisk)
+#   vendor_boot.img → ramdisk + DTBs + vendor cmdline
+#   init_boot.img   → init ramdisk (Android 13+, separate partition)
 
 # ── Header parser ──────────────────────────────────────────────────────────────
 
@@ -64,6 +71,212 @@ def parse_boot_header(img: Path) -> dict:
     return hdr
 
 
+def parse_vendor_boot_header(img: Path) -> dict:
+    """Parse vendor_boot.img header (v3/v4).
+
+    Android GKI devices split the boot image:
+      boot.img → kernel only (header v3/v4)
+      vendor_boot.img → ramdisk + DTBs + vendor cmdline
+
+    v3 header: 72 bytes
+    v4 header: 100 bytes (adds vendor ramdisk table)
+
+    Returns dict with all header fields.
+    """
+    with open(img, "rb") as f:
+        data = f.read(4096)
+
+    if data[:8] != VENDOR_BOOT_MAGIC:
+        raise ValueError(f"Not a valid vendor_boot image: {img}")
+
+    hdr = {
+        "magic":              data[:8].decode(),
+        "header_version":     struct.unpack_from("<I", data, 8)[0],
+        "page_size":          struct.unpack_from("<I", data, 12)[0],
+        "kernel_addr":        struct.unpack_from("<Q", data, 16)[0],
+        "kernel_size":        struct.unpack_from("<I", data, 24)[0],
+        "ramdisk_offset":     struct.unpack_from("<Q", data, 28)[0],
+        "ramdisk_size":       struct.unpack_from("<Q", data, 36)[0],
+        "dtb_offset":         struct.unpack_from("<Q", data, 44)[0],
+        "dtb_size":           struct.unpack_from("<Q", data, 52)[0],
+        "vendor_cmdline_size": struct.unpack_from("<I", data, 60)[0],
+    }
+
+    # vendor_cmdline_offset at byte 64 (8 bytes)
+    hdr["vendor_cmdline_offset"] = struct.unpack_from("<Q", data, 64)[0]
+
+    # v4: vendor ramdisk table at bytes 72-83 (4+4+4+reserved)
+    ver = hdr["header_version"]
+    if ver == 4:
+        hdr["vendor_ramdisk_table_size"] = struct.unpack_from("<I", data, 72)[0]
+        hdr["vendor_ramdisk_table_entry_num"] = struct.unpack_from("<I", data, 76)[0]
+        hdr["vendor_ramdisk_table_entry_size"] = struct.unpack_from("<I", data, 80)[0]
+    else:
+        hdr["vendor_ramdisk_table_size"] = 0
+        hdr["vendor_ramdisk_table_entry_num"] = 0
+        hdr["vendor_ramdisk_table_entry_size"] = 0
+
+    hdr["gki"] = True
+    hdr["vendor_cmd"] = ""
+    if hdr["vendor_cmdline_size"] > 0:
+        cmd_offset = hdr.get("vendor_cmdline_offset",
+                             hdr["page_size"])  # default: start of page 1
+        if cmd_offset < len(data) - hdr["vendor_cmdline_size"]:
+            hdr["vendor_cmd"] = data[cmd_offset:cmd_offset + hdr["vendor_cmdline_size"]].rstrip(b"\x00").decode("utf-8", errors="replace")
+
+    return hdr
+
+
+def unpack_vendor_boot(img: Path, out_dir: Path) -> dict:
+    """Unpack vendor_boot.img into component files.
+
+    Extracts:
+      ramdisk.cpio.gz — the main ramdisk
+      dtb             — device tree blob (if present)
+      kernel          — kernel (if kernel_size > 0, rare in GKI)
+      vendor_cmdline  — vendor command line
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    hdr = parse_vendor_boot_header(img)
+    page = hdr["page_size"]
+
+    console.print(f"\n  [yellow]GKI vendor_boot image (v{hdr['header_version']})[/yellow]")
+    console.print(f"  [yellow]  Ramdisk size: {hdr['ramdisk_size']} bytes[/yellow]")
+
+    with open(img, "rb") as f:
+        # Page 0 = header
+        f.seek(page)
+
+        # Kernel (if present in vendor_boot — unusual for GKI)
+        if hdr["kernel_size"] > 0:
+            kernel_data = f.read(hdr["kernel_size"])
+            (out_dir / "vendor_kernel").write_bytes(kernel_data)
+            # Align to page
+            remaining = page - (hdr["kernel_size"] % page)
+            if remaining < page:
+                f.seek(page + (hdr["kernel_size"] + page - 1) // page * page)
+
+        # Ramdisk
+        if hdr["ramdisk_size"] > 0:
+            ramdisk_offset = int(hdr["ramdisk_offset"])
+            f.seek(ramdisk_offset)
+            ramdisk_data = f.read(hdr["ramdisk_size"])
+            ramdisk_path = out_dir / "ramdisk.cpio.gz"
+            ramdisk_path.write_bytes(ramdisk_data)
+            console.print(f"  [green]✓ Ramdisk extracted: {ramdisk_path}[/green]")
+
+            # Try to extract ramdisk contents
+            ramdisk_dir = out_dir / "ramdisk"
+            extract_ramdisk(ramdisk_path, ramdisk_dir)
+            file_count = sum(1 for _ in ramdisk_dir.rglob("*")) if ramdisk_dir.exists() else 0
+            console.print(f"  [dim]  Ramdisk: {file_count} files[/dim]")
+        else:
+            console.print(f"  [dim]  No ramdisk in vendor_boot[/dim]")
+            (out_dir / "ramdisk.cpio.gz").write_bytes(b"")
+
+        # DTB
+        if hdr["dtb_size"] > 0:
+            dtb_offset = int(hdr["dtb_offset"])
+            f.seek(dtb_offset)
+            dtb_data = f.read(hdr["dtb_size"])
+            (out_dir / "dtb").write_bytes(dtb_data)
+            console.print(f"  [green]✓ DTB extracted: {hdr['dtb_size']} bytes[/green]")
+
+        # Vendor cmdline
+        if hdr["vendor_cmd"]:
+            (out_dir / "vendor_cmdline").write_text(hdr["vendor_cmd"])
+            console.print(f"  [dim]  Vendor cmdline: {hdr['vendor_cmd'][:60]}[/dim]")
+
+    # Save header
+    import json
+    with open(out_dir / "header.json", "w") as f:
+        json.dump(hdr, f, indent=2, default=str)
+
+    return hdr
+
+
+def repack_vendor_boot(unpacked_dir: Path, out_img: Path):
+    """Repack unpacked vendor_boot directory back into vendor_boot.img."""
+    import json
+    hdr_path = unpacked_dir / "header.json"
+    if not hdr_path.exists():
+        raise FileNotFoundError("header.json not found — run bootimg unpack-vendor first")
+
+    with open(hdr_path) as f:
+        hdr = json.load(f)
+
+    page = hdr["page_size"]
+    ramdisk_path = unpacked_dir / "ramdisk.cpio.gz"
+    ramdisk_dir = unpacked_dir / "ramdisk"
+    dtb_path = unpacked_dir / "dtb"
+
+    # Re-pack ramdisk if directory was modified
+    if ramdisk_dir.exists():
+        if not ramdisk_path.exists() or \
+           ramdisk_dir.stat().st_mtime > ramdisk_path.stat().st_mtime:
+            console.print("[cyan]→ Repacking modified ramdisk...[/cyan]")
+            repack_ramdisk(ramdisk_dir, ramdisk_path)
+
+    ramdisk_data = ramdisk_path.read_bytes() if ramdisk_path.exists() else b""
+    dtb_data = dtb_path.read_bytes() if dtb_path.exists() else b""
+
+    if tool_available("mkbootimg"):
+        cmd = [
+            "mkbootimg",
+            "--vendor_boot", str(out_img),
+            "--vendor_boot_version", str(hdr.get("header_version", 3)),
+            "--pagesize", str(page),
+        ]
+        if ramdisk_data:
+            cmd += ["--ramdisk", str(ramdisk_path)]
+        if dtb_data:
+            cmd += ["--dtb", str(dtb_path)]
+        run(cmd)
+        console.print(f"[green]✓ Repacked vendor_boot: {out_img}[/green]")
+        return
+
+    # Manual repack (no mkbootimg)
+    _manual_repack_vendor_boot(hdr, ramdisk_data, dtb_data, out_img)
+
+
+def _manual_repack_vendor_boot(hdr: dict, ramdisk: bytes, dtb: bytes, out: Path):
+    """Minimal vendor_boot repack when mkbootimg is unavailable."""
+    page = hdr["page_size"]
+
+    def pad(data, p):
+        rem = len(data) % p
+        return data + b"\x00" * (p - rem) if rem else data
+
+    # Build header
+    buf = bytearray(page)
+    buf[0:8] = VENDOR_BOOT_MAGIC
+    struct.pack_into("<I", buf, 8,  hdr.get("header_version", 3))
+    struct.pack_into("<I", buf, 12, page)
+    struct.pack_into("<Q", buf, 16, hdr.get("kernel_addr", 0))
+    struct.pack_into("<I", buf, 24, hdr.get("kernel_size", 0))
+    struct.pack_into("<Q", buf, 28, page * 2)  # ramdisk_offset: after header + kernel pages
+    struct.pack_into("<Q", buf, 36, len(ramdisk))
+    struct.pack_into("<Q", buf, 44, 0)  # dtb_offset (filled after ramdisk)
+    struct.pack_into("<Q", buf, 52, len(dtb))
+    struct.pack_into("<I", buf, 60, 0)  # vendor_cmdline_size
+    struct.pack_into("<Q", buf, 64, 0)  # vendor_cmdline_offset
+
+    # Compute offsets
+    offset = page * 2  # After header + kernel page
+    ramdisk_pages = (len(ramdisk) + page - 1) // page
+    if len(dtb) > 0:
+        struct.pack_into("<Q", buf, 44, offset + ramdisk_pages * page)
+
+    with open(out, "wb") as f:
+        f.write(bytes(buf))
+        f.write(pad(b"", page))  # kernel page (empty for GKI)
+        f.write(pad(ramdisk, page))
+        if dtb:
+            f.write(pad(dtb, page))
+
+    console.print(f"[yellow]⚠ Manual vendor_boot repack: {out} ([dim]size: {len(ramdisk)//1024}K ramdisk[/dim])[/yellow]")
+
+
 def pages(size: int, page_size: int) -> int:
     return (size + page_size - 1) // page_size
 
@@ -85,7 +298,8 @@ def unpack_boot(img: Path, out_dir: Path) -> dict:
         console.print("[yellow]⚠ GKI boot image detected (header v{})[/yellow]".format(
             hdr["header_version"]))
         console.print("[yellow]  Ramdisk is NOT in this image — it lives in vendor_boot.img[/yellow]")
-        console.print("[yellow]  or init_boot.img (Android 12+). Only kernel will be extracted.[/yellow]")
+        console.print("[yellow]  or init_boot.img (Android 12+). Only kernel extracted.[/yellow]")
+        console.print("[yellow]  To get ramdisk: [bold]watchrom bootimg unpack-vendor vendor_boot.img[/bold][/yellow]")
 
     with open(img, "rb") as f:
         # Skip header page(s)
@@ -344,14 +558,91 @@ def bootimg_repack(unpacked_dir, out):
         console.print(f"[red]✗ Repack failed: {e}[/red]")
 
 
-@bootimg.command("info")
+@bootimg.command("unpack-vendor")
 @click.argument("image")
-def bootimg_info(image):
-    """Show boot.img header fields without unpacking."""
+@click.option("--out", "-o", default=None, help="Output directory")
+def bootimg_unpack_vendor(image, out):
+    """Unpack a vendor_boot.img from a GKI device.
+
+    Output:
+      ramdisk.cpio.gz — compressed ramdisk
+      ramdisk/        — extracted ramdisk filesystem (editable)
+      dtb             — device tree blob (if present)
+      vendor_cmdline  — vendor command line
+      header.json     — all header fields (used by repack)
+    """
     img = Path(image)
     if not img.exists():
         console.print(f"[red]✗ Not found: {image}[/red]")
         return
+
+    out_dir = Path(out) if out else (OUTPUT_DIR / "vendor_boot" / img.stem)
+    from modules import file_size_mb
+    console.print(f"\n[bold cyan]Vendor Boot Unpacker[/bold cyan]")
+    console.print(f"  Image : {img.name} ({file_size_mb(img):.1f} MB)")
+
+    try:
+        hdr = unpack_vendor_boot(img, out_dir)
+        console.print(f"\n  Header v{hdr['header_version']}")
+        console.print(f"  Page size: {hdr['page_size']}")
+        console.print(f"  Ramdisk  : {hdr['ramdisk_size']} bytes")
+        console.print(f"  DTB      : {hdr['dtb_size']} bytes")
+        if hdr.get("vendor_cmd"):
+            console.print(f"  Cmdline  : {hdr['vendor_cmd'][:80]}")
+        console.print(f"\n[green]✓ Unpacked → {out_dir}[/green]")
+        console.print(f"  Repack: [bold]watchrom bootimg repack-vendor {out_dir}[/bold]")
+    except Exception as e:
+        console.print(f"[red]✗ Unpack failed: {e}[/red]")
+
+
+@bootimg.command("repack-vendor")
+@click.argument("unpacked_dir")
+@click.option("--out", "-o", default=None)
+def bootimg_repack_vendor(unpacked_dir, out):
+    """Repack an unpacked vendor_boot directory into a flashable image."""
+    d = Path(unpacked_dir)
+    if not d.is_dir():
+        console.print(f"[red]✗ Not a directory: {unpacked_dir}[/red]")
+        return
+
+    out_path = Path(out) if out else (OUTPUT_DIR / f"{d.name}_vendor_repacked.img")
+    console.print(f"\n[bold cyan]Vendor Boot Repacker[/bold cyan]")
+    try:
+        repack_vendor_boot(d, out_path)
+        from modules import sha256_file
+        console.print(f"  SHA256: {sha256_file(out_path)[:32]}…")
+    except Exception as e:
+        console.print(f"[red]✗ Repack failed: {e}[/red]")
+
+
+@bootimg.command("info")
+@click.argument("image")
+def bootimg_info(image):
+    """Show boot.img or vendor_boot.img header fields without unpacking."""
+    img = Path(image)
+    if not img.exists():
+        console.print(f"[red]✗ Not found: {image}[/red]")
+        return
+
+    # Try vendor_boot first (check magic)
+    try:
+        with open(img, "rb") as f:
+            magic = f.read(8)
+    except Exception:
+        console.print(f"[red]✗ Cannot read: {image}[/red]")
+        return
+
+    if magic == VENDOR_BOOT_MAGIC:
+        try:
+            hdr = parse_vendor_boot_header(img)
+            console.print(f"\n[bold cyan]Vendor Boot Header: {img.name}[/bold cyan]\n")
+            for k, v in hdr.items():
+                console.print(f"  [cyan]{k:28s}[/cyan] {v}")
+        except Exception as e:
+            console.print(f"[red]✗ {e}[/red]")
+        return
+
+    # Standard boot image
     try:
         hdr = parse_boot_header(img)
         console.print(f"\n[bold cyan]Boot Image Header: {img.name}[/bold cyan]\n")
@@ -361,6 +652,7 @@ def bootimg_info(image):
         if hdr.get("gki"):
             console.print(f"\n  [yellow]⚠ GKI image (header v{hdr['header_version']})[/yellow]")
             console.print(f"  [yellow]  Ramdisk is in vendor_boot.img or init_boot.img[/yellow]")
+            console.print(f"  [yellow]  Use: [bold]watchrom bootimg unpack-vendor vendor_boot.img[/bold][/yellow]")
     except Exception as e:
         console.print(f"[red]✗ {e}[/red]")
 
