@@ -19,7 +19,7 @@
 # WatchROM — One Kit to Rule Them All
 ### Android ROM Engineering Suite
 
-**109 commands · 29 modules · 6 chipset vendors · Android devices**
+**137 commands · 29 modules · 6 chipset vendors · Android devices**
 
 ---
 

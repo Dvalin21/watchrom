@@ -21,6 +21,7 @@ from modules import (
 )
 from modules.qualcomm_chips import (
     BAND_PRESETS, LTE_BANDS, NR_BANDS, VERIZON_BANDS,
+    compute_lte_mask, compute_nr_mask,
     compute_lte_mask_hex, compute_nr_mask_hex, verify_carrier_masks
 )
 
@@ -688,6 +689,18 @@ def bands_apply(carrier, serial, dry_run, method, derive_masks):
       watchrom bands apply --carrier tmobile --derive-masks
     """
     profile = dict(CARRIER_PROFILES[carrier])
+
+    # Automatic stale mask detection — warn if stored != computed
+    if profile.get("lte_bands"):
+        exp_low, exp_high = compute_lte_mask(profile["lte_bands"])
+        cur_low  = int(profile.get("lte_hex_low", "0x0"), 16)
+        cur_high = int(profile.get("lte_hex_high", "0x0"), 16)
+        nr_all = profile.get("nr_sub6", []) + profile.get("nr_mmwave", [])
+        lte_stale = (cur_low != exp_low or cur_high != exp_high)
+        nr_stale = nr_all and (int(profile.get("nr_hex", "0x0"), 16) != compute_nr_mask(nr_all))
+        if lte_stale or nr_stale:
+            console.print(f"[yellow]⚠ Stored hex masks don't match {profile['display']} band list.[/yellow]")
+            console.print(f"[yellow]  Run with [bold]--derive-masks[/bold] to auto-correct.[/yellow]")
 
     # Derive hex masks from band lists if requested
     if derive_masks and profile.get("lte_bands"):
