@@ -412,16 +412,13 @@ def _make_root_device_pipeline() -> Pipeline:
             return Result.fail(str(e))
 
     def flash_boot(ctx: dict) -> Result:
-        from modules import run_adb, fastboot_devices, run_fastboot
-        import time
+        from modules import run_adb, run_fastboot, wait_for_fastboot
         serial = ctx["serial"]
         patched = Path(ctx["patched_boot"])
         run_adb(["reboot", "bootloader"], serial=serial, check=False)
-        time.sleep(6)
-        fb = fastboot_devices()
-        if not fb:
+        fb_serial = wait_for_fastboot(serial, timeout=30)
+        if not fb_serial:
             return Result.fail("No fastboot device after reboot")
-        fb_serial = serial if serial in fb else fb[0]
         # Flash blank vbmeta first if we have it
         if ctx.get("blank_vbmeta"):
             run_fastboot(["flash", "vbmeta", str(ctx["blank_vbmeta"])],
@@ -434,10 +431,10 @@ def _make_root_device_pipeline() -> Pipeline:
         return Result.ok("Boot flashed, device rebooting")
 
     def verify_root(ctx: dict) -> Result:
-        import time
-        time.sleep(25)  # Wait for boot
-        from modules import run_adb
+        from modules import run_adb, wait_for_boot
         serial = ctx["serial"]
+        if not wait_for_boot(serial, timeout=120):
+            return Result.fail("Device did not boot within 120s")
         _, out, _ = run_adb(["shell", "su -c id 2>/dev/null"],
                              serial=serial, check=False)
         if "uid=0" in out:
@@ -600,8 +597,7 @@ def _make_avb_disable_pipeline() -> Pipeline:
         return Result.ok(f"Blank vbmeta: {blank}", blank_vbmeta=str(blank))
 
     def flash_vbmeta(ctx: dict) -> Result:
-        from modules import run_adb, fastboot_devices, run_fastboot
-        import time
+        from modules import run_adb, run_fastboot, wait_for_fastboot
 
         # Samsung KVB devices cannot use fastboot vbmeta disable
         if ctx.get("samsung_kvb") or ctx.get("is_samsung"):
@@ -616,11 +612,9 @@ def _make_avb_disable_pipeline() -> Pipeline:
         serial = ctx["serial"]
         blank  = Path(ctx["blank_vbmeta"])
         run_adb(["reboot", "bootloader"], serial=serial, check=False)
-        time.sleep(5)
-        fb = fastboot_devices()
-        if not fb:
-            return Result.fail("No fastboot device")
-        fb_serial = serial if serial in fb else fb[0]
+        fb_serial = wait_for_fastboot(serial, timeout=30)
+        if not fb_serial:
+            return Result.fail("No fastboot device after reboot")
         rc, _, err = run_fastboot(
             ["--disable-verity", "--disable-verification",
              "flash", "vbmeta", str(blank)],
@@ -696,8 +690,7 @@ def _make_flash_rom_pipeline() -> Pipeline:
         return Result.ok("AVB disabled") if result.success else Result.skip("AVB disable skipped")
 
     def flash_all(ctx: dict) -> Result:
-        from modules import run_adb, fastboot_devices, run_fastboot
-        import time
+        from modules import run_adb, run_fastboot, wait_for_fastboot
         serial = ctx.get("serial")
         images = ctx.get("images", {})
 
@@ -705,17 +698,14 @@ def _make_flash_rom_pipeline() -> Pipeline:
         FLASH_ORDER = ["vbmeta","dtbo","persist","modem","vendor",
                        "system","product","odm","recovery","boot"]
 
-        fb = fastboot_devices()
-        if not fb:
-            if serial:
-                run_adb(["reboot", "bootloader"], serial=serial, check=False)
-                time.sleep(6)
-            fb = fastboot_devices()
+        fb_serial = None
+        if serial:
+            fb_serial = wait_for_fastboot(serial, timeout=30)
+        if not fb_serial:
+            fb_serial = wait_for_fastboot(None, timeout=5)
 
-        if not fb:
+        if not fb_serial:
             return Result.fail("No fastboot device for flashing")
-
-        fb_serial = serial if serial in fb else fb[0]
         results   = {}
 
         # Flash in safe order, then any remaining
@@ -875,11 +865,11 @@ def _make_band_config_pipeline() -> Pipeline:
         return Result.ok(f"Band profile applied: {profile['display']}")
 
     def reboot_and_verify(ctx: dict) -> Result:
-        from modules import run_adb
-        import time
+        from modules import run_adb, wait_for_boot
         serial = ctx["serial"]
         run_adb(["reboot"], serial=serial, check=False)
-        time.sleep(30)
+        if not wait_for_boot(serial, timeout=120):
+            return Result.ok("Reboot initiated — verify signal in Settings")
         from modules.modem_bands import get_current_bands_at
         bands_info = get_current_bands_at(serial, ctx["vendor"])
         return Result.ok("Device rebooted — verify signal in Settings",

@@ -10,16 +10,12 @@ from pathlib import Path
 from typing import Optional
 from core.interfaces import BandConfigInterface, DeviceInfo, Result
 from core.registry import register_band_config
-
-
-def _adb(serial: str, cmd: list, check: bool = False, timeout: int = 30):
-    from modules import run_adb
-    return run_adb(cmd, serial=serial, check=check, timeout=timeout)
+from modules import run_adb
 
 
 def _find_at_port(serial: str, candidates: list[str]) -> Optional[str]:
     for port in candidates:
-        _, out, _ = _adb(serial, ["shell", f"ls {port} 2>/dev/null"], timeout=5)
+        _, out, _ = run_adb(["shell", f"ls {port} 2>/dev/null"], serial=serial, check=False, timeout=5)
         if port in out.strip():
             return port
     return None
@@ -27,10 +23,10 @@ def _find_at_port(serial: str, candidates: list[str]) -> Optional[str]:
 
 def _send_at(serial: str, port: str, cmd: str, wait: float = 1.5) -> str:
     shell = f"echo -e '{cmd}\\r\\n' > {port} && sleep {wait} && timeout {int(wait)+1} cat {port} 2>/dev/null"
-    _, out, _ = _adb(serial, ["shell", shell], timeout=10)
+    _, out, _ = run_adb(["shell", shell], serial=serial, check=False, timeout=10)
     if out.strip():
         return out.strip()
-    _, out2, _ = _adb(serial, ["shell", f"su -c '{shell}'"], timeout=10)
+    _, out2, _ = run_adb(["shell", f"su -c '{shell}'"], serial=serial, check=False, timeout=10)
     return out2.strip()
 
 
@@ -66,10 +62,10 @@ class QualcommBandConfig(BandConfigInterface):
             data["lte_reg"]   = _send_at(serial, port, "AT+CEREG?")
 
         # Augment with dumpsys
-        _, ds, _ = _adb(serial, [
+        _, ds, _ = run_adb([
             "shell",
             "dumpsys phone 2>/dev/null | grep -iE '(band|lte|nr|5g|rat)' | head -20"
-        ])
+        ], serial=serial, check=False, timeout=30)
         data["dumpsys"] = ds.strip()
         return Result.ok("Band config read", **data)
 
@@ -78,7 +74,7 @@ class QualcommBandConfig(BandConfigInterface):
         serial = device.serial
 
         # Method A: EFS via ADB root (most reliable)
-        _, root_check, _ = _adb(serial, ["shell", "su -c id"], timeout=10)
+        _, root_check, _ = run_adb(["shell", "su -c id"], serial=serial, check=False, timeout=10)
         if "uid=0" in root_check:
             return self._write_efs(serial, lte_low, lte_high, nr_mask)
 
@@ -108,7 +104,7 @@ class QualcommBandConfig(BandConfigInterface):
                 f"open(\\\"{path}\\\",\\\"wb\\\").write(struct.pack(\\\"<QQ\\\",{low}&0xFFFFFFFFFFFFFFFF,{high}&0xFFFFFFFFFFFFFFFF))"
                 f"\" && echo OK'"
             )
-            _, out, _ = _adb(serial, ["shell", py_cmd], timeout=15)
+            _, out, _ = run_adb(["shell", py_cmd], serial=serial, check=False, timeout=15)
             if "OK" in out:
                 written.append(path.split("/")[-1])
             else:

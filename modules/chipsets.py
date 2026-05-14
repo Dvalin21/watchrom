@@ -182,31 +182,8 @@ def identify_unisoc_chip(platform_str: str) -> dict:
     return {}
 
 
-def get_partition_list(vendor: str, ab: bool = False) -> list:
-    """Return appropriate partition list for vendor + AB flag."""
-    if vendor == "mtk":
-        return MTK_PARTITIONS["ab" if ab else "standard"]
-    elif vendor == "unisoc":
-        return UNISOC_PARTITIONS["ab" if ab else "standard"]
-    # Generic fallback
-    return ["boot","recovery","system","vendor","userdata","cache",
-            "persist","dtbo","vbmeta"]
-
-
 def get_flash_tool_info(vendor: str) -> dict:
     return FLASH_TOOLS.get(vendor, FLASH_TOOLS["mtk"])
-
-
-def all_watch_chips() -> list:
-    """Return list of all known watch-class chipsets."""
-    result = []
-    for key, info in MTK_CHIPS.items():
-        if info["watch"]:
-            result.append({"vendor": "mtk", "key": key, **info})
-    for key, info in UNISOC_CHIPS.items():
-        if info["watch"]:
-            result.append({"vendor": "unisoc", "key": key, **info})
-    return result
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ROCKCHIP CHIPSET DATABASE

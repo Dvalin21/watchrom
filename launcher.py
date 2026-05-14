@@ -31,15 +31,28 @@ try:
     from rich.rule    import Rule
 except ImportError:
     # Install to user site-packages — avoids breaking system packages
-    subprocess.run([sys.executable, "-m", "pip", "install",
-                    "--user", "rich", "-q"])
-    from rich.console import Console
-    from rich.panel   import Panel
-    from rich.table   import Table
-    from rich.prompt  import Prompt, Confirm
-    from rich.text    import Text
-    from rich         import box
-    from rich.rule    import Rule
+    print("WatchROM needs the 'rich' library for the TUI menu.")
+    print("Attempting auto-install...")
+    ret = subprocess.run([sys.executable, "-m", "pip", "install",
+                          "--user", "rich", "-q"])
+    if ret.returncode != 0:
+        print("Auto-install failed. Install manually:")
+        print(f"  {sys.executable} -m pip install --user rich")
+        sys.exit(1)
+    # Re-import after install
+    try:
+        from rich.console import Console
+        from rich.panel   import Panel
+        from rich.table   import Table
+        from rich.prompt  import Prompt, Confirm
+        from rich.text    import Text
+        from rich         import box
+        from rich.rule    import Rule
+    except ImportError as e:
+        print(f"Failed to import rich after install: {e}")
+        print("Install manually:")
+        print(f"  {sys.executable} -m pip install --user rich")
+        sys.exit(1)
 
 console = Console()
 

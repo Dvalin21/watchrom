@@ -7,7 +7,47 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
-*Changes staged for next release.*
+### Added
+- **Band hex mask auto-computation**: `compute_lte_mask()`/`compute_lte_mask_hex()` using
+  standard 3GPP bit mapping (bit position = band_number − 1). `compute_nr_mask()` with
+  documented firmware-specific mapping table. `--derive-masks` flag for `bands apply`,
+  `bands verify-masks` CLI command to detect stale hex masks against declared band lists.
+- **Samsung/Heimdall support**: `modules/samsung.py` (320 lines) with Samsung device detection,
+  bootloader unlock check, Download Mode helpers, Heimdall flash wrapper, and 13 Exynos chips
+  (2400/2200/2100/990/982x/9810/961x/7885/7870/8890/7420). 19 Samsung-to-standard partition
+  name mappings. Exynos detection integrated into `identify_chip_universal()`. Samsung KVB
+  (Knox) detection in root-device and avb-disable pipelines with user guidance.
+- **GKI vendor_boot ramdisk support**: Vendor boot header parser (magic VNDRBOOT, v3=72 bytes,
+  v4=100 bytes). `unpack_vendor_boot()` extracts ramdisk.cpio.gz + DTB + vendor cmdline.
+  `repack_vendor_boot()` rebuilds from modified contents (mkbootimg or manual fallback).
+  `bootimg unpack-vendor`/`repack-vendor` CLI commands. GKI unpack warnings now point to
+  vendor_boot commands.
+- **Danger-zone partition protection**: 60+ critical partitions blocked by default
+  (preloader, persist, fsg, abl, xbl, tz, keymaster, etc.). Requires `--force` to override.
+- **Battery level pre-flight check**: Root-device and flash-rom pipelines check battery ≥30%
+  before any write operation, preventing brick from power loss.
+- **`wait_for_boot()` / `wait_for_fastboot()` poll loops**: Replaces fragile `time.sleep()`
+  with polling-based device wait. `wait_for_boot()` polls `sys.boot_completed` up to 120s.
+  `wait_for_fastboot()` polls `fastboot devices` up to 30s.
+- **Proper getprop regex parsing**: `_GETPROP_RE` replaces fragile bracket-splitting in
+  `get_device_props()`.
+
+### Fixed
+- **LTE hex mask computation**: Recalculated 16 CARRIER_PROFILES + 13 BAND_PRESETS hex masks
+  that had stale/incorrect values not matching declared band lists. `global_roaming` bands
+  1–68 had wrong masks (only 63 bits, high word wrong).
+- **MTK band write dead code**: Removed `lte_high << 0` no-op — MTK EPBSE only supports
+  64-bit masks.
+- **vbmeta flash rollback**: Proper restore of stock vbmeta backup on flash failure.
+- **Duplicate LTE_BANDS key 34** in qualcomm_chips.py — caused data corruption.
+- **CHIPSET_SIGNATURES duplication**: `detect_chipset_from_props()` now delegates to
+  `chipsets.py` as single source of truth. Removed Qualcomm monkey-patch.
+- **launcher.py error handling**: Improved rich import with clear error messages and graceful
+  failure instead of silent auto-install attempt.
+- **Direct chipsets import in vendors.py**: Removed try/except fallbacks to `PARTITION_MAPS` —
+  all vendors now use `modules.chipsets` directly.
+- **T-Mobile band profile**: Added n25 (sub6), n258/n260/n261 (mmWave) to match official
+  T-Mobile 5GUC spec. Primary 5G remains n41 (mid-band).
 
 ---
 

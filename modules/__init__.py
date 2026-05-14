@@ -2,7 +2,7 @@
 Shared utility functions for WatchROM toolkit
 Supports: MTK, Unisoc, Rockchip, Allwinner, Realtek, + any Android
 """
-import os, subprocess, shutil, hashlib, struct, time
+import os, subprocess, shutil, hashlib, struct, time, re
 from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -79,16 +79,49 @@ def fastboot_devices():
     _, out, _ = run(["fastboot", "devices"], check=False)
     return [l.split()[0] for l in out.splitlines() if l.split()]
 
+_GETPROP_RE = re.compile(r'^\[([^\]]*)\]:\s*\[(.*?)\]$')
+
 def get_device_props(serial=None):
     _, out, _ = run_adb(["shell", "getprop"], serial=serial, check=False)
     props = {}
     for line in out.splitlines():
-        line = line.strip()
-        if line.startswith("[") and "]: [" in line:
-            key = line[1:line.index("]")]
-            val = line[line.index("]: [")+4:-1]
-            props[key] = val
+        m = _GETPROP_RE.match(line.strip())
+        if m:
+            props[m.group(1)] = m.group(2)
     return props
+
+def wait_for_boot(serial=None, timeout=120, poll_interval=3):
+    """
+    Poll ADB until sys.boot_completed == 1.
+    Returns True if device booted, False on timeout.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        _, out, _ = run_adb(
+            ["shell", "getprop sys.boot_completed"],
+            serial=serial, check=False, timeout=10
+        )
+        if out.strip() == "1":
+            return True
+        time.sleep(poll_interval)
+    return False
+
+
+def wait_for_fastboot(serial=None, timeout=30, poll_interval=1):
+    """
+    Poll fastboot devices until a device appears.
+    Returns serial if found, None on timeout.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        devs = fastboot_devices()
+        if serial and serial in devs:
+            return serial
+        if devs:
+            return devs[0]
+        time.sleep(poll_interval)
+    return None
+
 
 def detect_chipset_from_props(props: dict) -> tuple:
     """Detect chipset from Android device properties.

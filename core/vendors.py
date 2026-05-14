@@ -48,13 +48,9 @@ class MTKVendor(VendorInterface):
         )
 
     def partition_list(self, device: DeviceInfo) -> list[str]:
-        from modules import PARTITION_MAPS
+        from modules.chipsets import MTK_PARTITIONS
         layout = "ab" if device.ab_partitions else "standard"
-        try:
-            from modules.chipsets import MTK_PARTITIONS
-            return MTK_PARTITIONS.get(layout, MTK_PARTITIONS["standard"])
-        except Exception:
-            return PARTITION_MAPS["mtk"]
+        return MTK_PARTITIONS.get(layout, MTK_PARTITIONS["standard"])
 
     def download_mode_entry(self) -> str:
         return ("MTK BROM mode:\n"
@@ -72,11 +68,8 @@ class MTKVendor(VendorInterface):
         }
 
     def supported_chips(self) -> list[str]:
-        try:
-            from modules.chipsets import MTK_CHIPS
-            return list(MTK_CHIPS.keys())
-        except Exception:
-            return []
+        from modules.chipsets import MTK_CHIPS
+        return list(MTK_CHIPS.keys())
 
 
 @register_vendor
@@ -107,13 +100,9 @@ class UnisocVendor(VendorInterface):
         )
 
     def partition_list(self, device: DeviceInfo) -> list[str]:
-        try:
-            from modules.chipsets import UNISOC_PARTITIONS
-            layout = "ab" if device.ab_partitions else "standard"
-            return UNISOC_PARTITIONS.get(layout, UNISOC_PARTITIONS["standard"])
-        except Exception:
-            from modules import PARTITION_MAPS
-            return PARTITION_MAPS["unisoc"]
+        from modules.chipsets import UNISOC_PARTITIONS
+        layout = "ab" if device.ab_partitions else "standard"
+        return UNISOC_PARTITIONS.get(layout, UNISOC_PARTITIONS["standard"])
 
     def download_mode_entry(self) -> str:
         return ("Unisoc FDL mode:\n"
@@ -131,11 +120,8 @@ class UnisocVendor(VendorInterface):
         }
 
     def supported_chips(self) -> list[str]:
-        try:
-            from modules.chipsets import UNISOC_CHIPS
-            return list(UNISOC_CHIPS.keys())
-        except Exception:
-            return []
+        from modules.chipsets import UNISOC_CHIPS
+        return list(UNISOC_CHIPS.keys())
 
 
 @register_vendor
@@ -165,13 +151,9 @@ class RockchipVendor(VendorInterface):
         )
 
     def partition_list(self, device: DeviceInfo) -> list[str]:
-        try:
-            from modules.chipsets import ROCKCHIP_PARTITIONS
-            layout = "ab" if device.ab_partitions else "gpt"
-            return ROCKCHIP_PARTITIONS.get(layout, ROCKCHIP_PARTITIONS["gpt"])
-        except Exception:
-            from modules import PARTITION_MAPS
-            return PARTITION_MAPS["rockchip"]
+        from modules.chipsets import ROCKCHIP_PARTITIONS
+        layout = "ab" if device.ab_partitions else "gpt"
+        return ROCKCHIP_PARTITIONS.get(layout, ROCKCHIP_PARTITIONS["gpt"])
 
     def download_mode_entry(self) -> str:
         return ("Rockchip MaskROM mode:\n"
@@ -188,11 +170,8 @@ class RockchipVendor(VendorInterface):
         }
 
     def supported_chips(self) -> list[str]:
-        try:
-            from modules.chipsets import ROCKCHIP_CHIPS
-            return list(ROCKCHIP_CHIPS.keys())
-        except Exception:
-            return []
+        from modules.chipsets import ROCKCHIP_CHIPS
+        return list(ROCKCHIP_CHIPS.keys())
 
 
 @register_vendor
@@ -222,13 +201,9 @@ class AllwinnerVendor(VendorInterface):
         )
 
     def partition_list(self, device: DeviceInfo) -> list[str]:
-        try:
-            from modules.chipsets import ALLWINNER_PARTITIONS
-            layout = "ab" if device.ab_partitions else "emmc"
-            return ALLWINNER_PARTITIONS.get(layout, ALLWINNER_PARTITIONS["emmc"])
-        except Exception:
-            from modules import PARTITION_MAPS
-            return PARTITION_MAPS["allwinner"]
+        from modules.chipsets import ALLWINNER_PARTITIONS
+        layout = "ab" if device.ab_partitions else "emmc"
+        return ALLWINNER_PARTITIONS.get(layout, ALLWINNER_PARTITIONS["emmc"])
 
     def download_mode_entry(self) -> str:
         return ("Allwinner FEL mode:\n"
@@ -245,11 +220,8 @@ class AllwinnerVendor(VendorInterface):
         }
 
     def supported_chips(self) -> list[str]:
-        try:
-            from modules.chipsets import ALLWINNER_CHIPS
-            return list(ALLWINNER_CHIPS.keys())
-        except Exception:
-            return []
+        from modules.chipsets import ALLWINNER_CHIPS
+        return list(ALLWINNER_CHIPS.keys())
 
 
 @register_vendor
@@ -278,8 +250,8 @@ class RealtekVendor(VendorInterface):
         )
 
     def partition_list(self, device: DeviceInfo) -> list[str]:
-        from modules import PARTITION_MAPS
-        return PARTITION_MAPS["realtek"]
+        from modules.chipsets import REALTEK_PARTITIONS
+        return REALTEK_PARTITIONS.get("android_tv", REALTEK_PARTITIONS["standard"])
 
     def download_mode_entry(self) -> str:
         return ("Realtek Rescue mode:\n"
@@ -295,11 +267,8 @@ class RealtekVendor(VendorInterface):
         }
 
     def supported_chips(self) -> list[str]:
-        try:
-            from modules.chipsets import REALTEK_CHIPS
-            return list(REALTEK_CHIPS.keys())
-        except Exception:
-            return []
+        from modules.chipsets import REALTEK_CHIPS
+        return list(REALTEK_CHIPS.keys())
 
 
 @register_vendor
@@ -348,8 +317,5 @@ class QualcommVendor(VendorInterface):
         }
 
     def supported_chips(self) -> list[str]:
-        try:
-            from modules.qualcomm_chips import SNAPDRAGON_CHIPS
-            return list(SNAPDRAGON_CHIPS.keys())
-        except Exception:
-            return []
+        from modules.qualcomm_chips import SNAPDRAGON_CHIPS
+        return list(SNAPDRAGON_CHIPS.keys())
