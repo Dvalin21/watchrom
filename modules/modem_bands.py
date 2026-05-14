@@ -98,7 +98,7 @@ CARRIER_PROFILES = {
         ],
         "lte_hex_low":  "0x000080000000101A",
         "lte_hex_high": "0x0000000000000002",  # B66 in upper word
-        "nr_hex":       "0x0000000000000118",
+        "nr_hex":       "0xC000000000940008",
     },
     "tmobile": {
         "display":   "T-Mobile US",
@@ -134,7 +134,7 @@ CARRIER_PROFILES = {
         ],
         "lte_hex_low":  "0x000000003001205A",
         "lte_hex_high": "0x0000000000000002",
-        "nr_hex":       "0x0000000000000018",
+        "nr_hex":       "0x0000000001800000",
     },
     "firstnet": {
         "display":   "FirstNet (AT&T) — First Responder Network",
@@ -149,7 +149,7 @@ CARRIER_PROFILES = {
         ],
         "lte_hex_low":  "0x000000003001200A",
         "lte_hex_high": "0x0000000000000000",
-        "nr_hex":       "0x0000000000000008",
+        "nr_hex":       "0x0000000000800000",
     },
     "dish_boost": {
         "display":   "Dish/Boost Mobile (US)",
@@ -164,7 +164,7 @@ CARRIER_PROFILES = {
         ],
         "lte_hex_low":  "0x0000010002000002",
         "lte_hex_high": "0x0000000000000002",
-        "nr_hex":       "0x0000000000002080",
+        "nr_hex":       "0x0000000000300000",
     },
     "cbrs": {
         "display":   "CBRS Private Network (US — 3.5 GHz)",
@@ -180,7 +180,7 @@ CARRIER_PROFILES = {
         ],
         "lte_hex_low":  "0x0000800000000000",
         "lte_hex_high": "0x0000000000000000",
-        "nr_hex":       "0x0000000000008000",
+        "nr_hex":       "0x0000000000040000",
     },
     # ── International ───────────────────────────────────────────────────────
     "uk_vodafone": {
@@ -193,7 +193,7 @@ CARRIER_PROFILES = {
         "notes": ["B20 (800MHz) = UK primary coverage","n78 = UK 5G main"],
         "lte_hex_low":  "0x00000000080800C7",
         "lte_hex_high": "0x0000000000000000",
-        "nr_hex":       "0x0000000000004009",
+        "nr_hex":       "0x0000000001002005",
     },
     "uk_ee": {
         "display":   "EE UK",
@@ -205,7 +205,7 @@ CARRIER_PROFILES = {
         "notes": ["EE B3+B7+B20 = standard UK coverage","n78 = EE 5G"],
         "lte_hex_low":  "0x00000000880800C5",
         "lte_hex_high": "0x0000000000000000",
-        "nr_hex":       "0x0000000000004009",
+        "nr_hex":       "0x0000000001000005",
     },
     "eu_generic": {
         "display":   "Europe (generic — all major carriers)",
@@ -217,7 +217,7 @@ CARRIER_PROFILES = {
         "notes": ["Works across DE/FR/IT/ES/NL and most EU carriers"],
         "lte_hex_low":  "0x00000020080800D5",
         "lte_hex_high": "0x0000000000000000",
-        "nr_hex":       "0x0000000000006009",
+        "nr_hex":       "0x0000000001002015",
     },
     "canada_rogers": {
         "display":   "Rogers/Fido/Shaw (Canada)",
@@ -229,7 +229,7 @@ CARRIER_PROFILES = {
         "notes": ["B4/B66 AWS = Rogers primary","n77 C-band = Rogers 5G+"],
         "lte_hex_low":  "0x000000000001085A",
         "lte_hex_high": "0x0000000000000002",
-        "nr_hex":       "0x0000000000002008",
+        "nr_hex":       "0x0000000000900000",
     },
     "australia_telstra": {
         "display":   "Telstra (Australia)",
@@ -241,7 +241,7 @@ CARRIER_PROFILES = {
         "notes": ["B28 (700MHz) = Telstra coverage band","n78 3.5GHz = 5G"],
         "lte_hex_low":  "0x0000008008000055",
         "lte_hex_high": "0x0000000000000000",
-        "nr_hex":       "0x0000000000004010",
+        "nr_hex":       "0x0000000001002000",
     },
     "japan_docomo": {
         "display":   "NTT Docomo (Japan)",
@@ -257,7 +257,7 @@ CARRIER_PROFILES = {
         ],
         "lte_hex_low":  "0x0000020008140005",
         "lte_hex_high": "0x0000000000000000",
-        "nr_hex":       "0x0000000000078000",
+        "nr_hex":       "0x1000000003800000",
     },
     "korea_skt": {
         "display":   "SK Telecom (South Korea)",
@@ -269,7 +269,7 @@ CARRIER_PROFILES = {
         "notes": ["Korea 5G leaders","n257/n258 mmWave = 28GHz/26GHz 5G"],
         "lte_hex_low":  "0x00000200000000D5",
         "lte_hex_high": "0x0000000000000000",
-        "nr_hex":       "0x0000000000024000",
+        "nr_hex":       "0x3000000001000000",
     },
     "india_jio": {
         "display":   "Reliance Jio (India)",
@@ -285,7 +285,7 @@ CARRIER_PROFILES = {
         ],
         "lte_hex_low":  "0x0000008000000014",
         "lte_hex_high": "0x0000000000000000",
-        "nr_hex":       "0x0000000000006010",
+        "nr_hex":       "0x0000000001802000",
     },
     "china_telecom": {
         "display":   "China Telecom",
@@ -297,7 +297,7 @@ CARRIER_PROFILES = {
         "notes": ["CT uses SA 5G network","n41 2.5GHz = primary 5G"],
         "lte_hex_low":  "0x0000018000020015",
         "lte_hex_high": "0x0000000000000000",
-        "nr_hex":       "0x0000000000068002",
+        "nr_hex":       "0x0000000003020000",
     },
     "global_roaming": {
         "display":   "Global Roaming (all bands)",
@@ -313,7 +313,7 @@ CARRIER_PROFILES = {
         ],
         "lte_hex_low":  "0xFFFFFFFFFFFFFFFF",
         "lte_hex_high": "0x000000000000000F",
-        "nr_hex":       "0x7FFFFFFFFFFFFFFF",
+        "nr_hex":       "0xE000000003D7AC7F",
     },
 }
 

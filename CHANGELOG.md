@@ -48,6 +48,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   all vendors now use `modules.chipsets` directly.
 - **T-Mobile band profile**: Added n25 (sub6), n258/n260/n261 (mmWave) to match official
   T-Mobile 5GUC spec. Primary 5G remains n41 (mid-band).
+- **NR hex mask corruption in all profiles**: 15 CARRIER_PROFILES + 15 BAND_PRESETS had
+  NR hex masks that encoded completely wrong bands (e.g. n5 where n77 was declared, n38
+  where n48 was declared, n2 where n41 was declared). Root cause: commit c898717 fixed
+  LTE hex masks but never recalculated NR masks. All NR hex values now correctly computed
+  via `compute_nr_mask_hex()` from declared band lists. 5 simple presets (us_tmobile,
+  us_att, us_verizon, europe_4g, asia_4g5g) also fixed to match descriptions.
 
 ---
 
