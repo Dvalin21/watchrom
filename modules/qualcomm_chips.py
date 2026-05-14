@@ -273,11 +273,11 @@ BAND_PRESETS = {
     },
     "us_tmobile_full": {
         "lte": "0x000001000300081A",
-        "nr":  "0xE000000000420800",
-        "desc": "T-Mobile full: B2/4/5/12/25/26/41/66/71 + n25/n41/n71 + n258/n260/n261 mmWave",
+        "nr":  "0xE000000000420802",
+        "desc": "T-Mobile full: B2/4/5/12/25/26/41/66/71 + n2/n25/n41/n71 + n258/n260/n261 mmWave",
         "lte_bands": [2, 4, 5, 12, 25, 26, 41, 66, 71],
-        "nr_bands":  ["n25","n41","n71","n258","n260","n261"],
-        "notes":     "T-Mobile 5G: n41 (2.5GHz mid-band), n71 (600MHz coverage), n25 (1900MHz), n258/n260/n261 mmWave",
+        "nr_bands":  ["n2","n25","n41","n71","n258","n260","n261"],
+        "notes":     "T-Mobile 5G: n41 (2.5GHz mid-band), n71 (600MHz coverage), n2/n25 (1900MHz), n258/n260/n261 mmWave",
     },
     "us_att_full": {
         "lte": "0x000000003001005A",

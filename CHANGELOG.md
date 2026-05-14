@@ -46,8 +46,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   failure instead of silent auto-install attempt.
 - **Direct chipsets import in vendors.py**: Removed try/except fallbacks to `PARTITION_MAPS` —
   all vendors now use `modules.chipsets` directly.
-- **T-Mobile band profile**: Added n25 (sub6), n258/n260/n261 (mmWave) to match official
-  T-Mobile 5GUC spec. Primary 5G remains n41 (mid-band).
+- **T-Mobile band profile**: Added n2, n25 (sub6), n258/n260/n261 (mmWave) to match official
+  T-Mobile 5GUC spec. n2 and n25 are separate NR bands in the NV bitmask (bits 1 and 11) —
+  both must be set. Primary 5G remains n41 (mid-band).
 - **NR hex mask corruption in all profiles**: 15 CARRIER_PROFILES + 15 BAND_PRESETS had
   NR hex masks that encoded completely wrong bands (e.g. n5 where n77 was declared, n38
   where n48 was declared, n2 where n41 was declared). Root cause: commit c898717 fixed
