@@ -319,7 +319,7 @@ NR mask            : 0x0000000000000118   covers n5, n48, n66, n77
 | Carrier | LTE Bands | 5G Bands | Command |
 |---------|-----------|----------|---------|
 | Verizon | B2/4/5/13/48/66 | n5/n48/n66/n77/n260/n261 | `--carrier verizon` |
-| T-Mobile | B2/4/5/12/25/26/41/66/71 | n41/n71 | `--carrier tmobile` |
+| T-Mobile | B2/4/5/12/25/26/41/66/71 | n2/n25/n41/n71 + n258/n260/n261 mmWave | `--carrier tmobile` |
 | AT&T | B2/4/5/7/14/17/29/30/66 | n77/n78 | `--carrier att` |
 | FirstNet (AT&T) | B2/4/14/17/29/30 | n77 | `--carrier firstnet` |
 | Dish/Boost | B2/26/41/66 | n66/n70 | `--carrier dish_boost` |
